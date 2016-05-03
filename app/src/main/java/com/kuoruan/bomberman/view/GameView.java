@@ -42,6 +42,16 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     //屏幕大小
     private int mScreenXMax = 0;
     private int mScreenYMax = 0;
+    private int mScreenXCenter = 0;
+    private int mScreenYCenter = 0;
+    //场景大小
+    private int mSceneXMax = 0;
+    private int mSceneYMax = 0;
+    /**
+     * 屏幕偏移
+     */
+    private int mScreenXOffset = 0;
+    private int mScreenYOffset = 0;
     //砖块宽高
     private int mTileWidth = 0;
     private int mTileHeight = 0;
@@ -169,6 +179,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             mGameActivity.getWindowManager().getDefaultDisplay().getSize(point);
             mScreenXMax = point.x;
             mScreenYMax = point.y;
+            mScreenXCenter = (mScreenXMax / 2);
+            mScreenYCenter = (mScreenYMax / 2);
 
             setGameStartState();
         }
@@ -242,9 +254,36 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                     mPlayer.setX(newX);
                     mPlayer.setY(newY);
                 }
+
+                setViewOffset();
             }
         }
 
+        private void setViewOffset() {
+            if (mSceneXMax == 0) {
+                return;
+            }
+
+            int playerX = mPlayer.getX();
+            int playerY = mPlayer.getY();
+
+            if (playerX >= mScreenXCenter) {
+                mScreenXOffset = playerX - mScreenXCenter;
+
+                if (mScreenXOffset > (mSceneXMax - mScreenXMax)) {
+                    mScreenXOffset = mSceneXMax - mScreenXMax;
+                }
+            }
+
+            if (playerY >= mScreenYCenter) {
+                mScreenYOffset = playerY - mScreenYCenter;
+
+                if (mScreenYOffset > (mSceneYMax - mScreenYMax)) {
+                    mScreenYOffset = mSceneYMax - mScreenYMax;
+                }
+            }
+
+        }
 
         //绘制游戏元素
         private void doDraw(Canvas canvas) {
@@ -264,20 +303,27 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
         //绘制玩家
         private void drawPlayers(Canvas canvas) {
+            int offsetX;
+            int offsetY;
             for (PlayerUnit playerUnit : mPlayers) {
-                Bitmap bitmap = playerUnit.getBitmap();
-
-                canvas.drawBitmap(bitmap, playerUnit.getX(), playerUnit.getY(), null);
+                offsetX = playerUnit.getX() - mScreenXOffset;
+                offsetY = playerUnit.getY() - mScreenYOffset;
+                canvas.drawBitmap(playerUnit.getBitmap(), offsetX, offsetY, null);
             }
         }
 
         //绘制游戏地图
         private void drawGameTiles(Canvas canvas) {
+            int offsetX;
+            int offsetY;
+
             for (GameTile gameTile : mGameTiles) {
                 if (gameTile != null) {
 
+                    offsetX = gameTile.getX() - mScreenXOffset;
+                    offsetY = gameTile.getY() - mScreenYOffset;
                     if (gameTile.isVisible()) {
-                        canvas.drawBitmap(gameTile.getBitmap(), gameTile.getX(), gameTile.getY(), null);
+                        canvas.drawBitmap(gameTile.getBitmap(), offsetX, offsetY, null);
                     }
                 }
             }
@@ -438,6 +484,13 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                     }
                     if (mTileHeight == 0) {
                         mTileHeight = gameTile.getHeight();
+                    }
+
+                    if (mSceneXMax == 0 && tiles.length > 0) {
+                        mSceneXMax = tiles.length * mTileWidth;
+                    }
+                    if (mSceneYMax == 0 && tileLines.length > 0) {
+                        mSceneYMax = tileLines.length * mTileWidth;
                     }
 
                     // Add new game tile to loaded game tiles.
