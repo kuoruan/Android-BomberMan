@@ -114,8 +114,9 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     public GameView(Context context) {
         super(context);
     }
+
     public GameView(Context context, GameActivity activity, int stage, float screenDensity, NetPlayer mNetPlayer) {
-        this(context,activity,stage,screenDensity);
+        this(context, activity, stage, screenDensity);
         this.mPlayer = mNetPlayer.getPlayerUnit();
         this.mNetPlayer = mNetPlayer;
         mPlayerStage = stage;
@@ -136,6 +137,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         startLevel();
         thread.doStart();
     }
+
     public GameView(Context context, GameActivity activity, int stage, float screenDensity) {
         super(context);
 
@@ -143,8 +145,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         mGameActivity = activity;
 
         mScreenDensity = screenDensity;
-
-
     }
 
     @Override
@@ -231,8 +231,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
         //更新自身游戏角色位置
         private void updatePlayerUnit() {
-           //Log.i(TAG,"size:"+ NetPlayerManager.getPlayerNumber());
-            GameTile collisionTile = null;
             if (mPlayer.isMoving()) {
                 int differenceX;
                 int differenceY;
@@ -319,8 +317,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             int offsetY;
             for (NetPlayer netPlayer : mNetPlayers) {
                 PlayerUnit playerUnit = netPlayer.getPlayerUnit();
-		offsetX = playerUnit.getX() - mScreenXOffset;
-		offsetY = playerUnit.getY() - mScreenYOffset;
+                offsetX = playerUnit.getX() - mScreenXOffset;
+                offsetY = playerUnit.getY() - mScreenYOffset;
 
                 Bitmap bitmap = playerUnit.getBitmap();
                 canvas.drawBitmap(bitmap, offsetX, offsetY, null);
@@ -529,19 +527,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         updatingGameTiles = false;
 
     }
-
-//    private void setPlayerStart() {
-//        if (mPlayers.size() == 0) {
-//            mPlayer = new PlayerUnit(mGameContext, mPlayerUnitTemplates.get(0).get(GameData.FIELD_ID_DRAWABLE));
-//
-//            int playerStartX = (mPlayerStartTileX * mPlayer.getWidth());
-//            int playerStartY = (mPlayerStartTileY * mPlayer.getHeight());
-//
-//            mPlayer.setX(playerStartX);
-//            mPlayer.setY(playerStartY);
-//            mPlayers.add(0, mPlayer);
-//        }
-//    }
 
     //处理控制按钮
     private void setControlsStart() {

@@ -18,24 +18,28 @@ import java.util.Random;
  */
 public class NetPlayerManager {
     private static List<NetPlayer> playerList = new ArrayList<>();
-    private static final Point[] positions = {new Point(1,1),new Point(13,13),new Point(1,13),new Point(13,1)};
-    public static List<NetPlayer> getNetPlayerList(){
+    private static final Point[] positions = {new Point(1, 1), new Point(13, 13), new Point(1, 13), new Point(13, 1)};
+
+    public static List<NetPlayer> getNetPlayerList() {
         return playerList;
     }
-    public static int getPlayerNumber(){
-        return  playerList.size();
+
+    public static int getPlayerNumber() {
+        return playerList.size();
     }
+
     public static NetPlayer my = null;
 
     /**
      * 添加一个新的网络玩家
+     *
      * @param context
      * @return
      */
-    public static NetPlayer addNetPlayer(Context context,long id,int x,int y){
+    public static NetPlayer addNetPlayer(Context context, long id, int x, int y) {
 
         GameData mGameData = new GameData(context);
-        GameLevelTileData  mGameLevelTileData = new GameLevelTileData(context);
+        GameLevelTileData mGameLevelTileData = new GameLevelTileData(context);
         HashMap<Integer, ArrayList<Integer>> mGameTileTemplates = mGameData.getGameTileData();
         ArrayList<ArrayList<Integer>> mPlayerUnitTemplates = mGameData.getPlayerUnitData();
         PlayerUnit playerUnit = new PlayerUnit(context, mPlayerUnitTemplates.get(0).get(GameData.FIELD_ID_DRAWABLE));
@@ -47,40 +51,45 @@ public class NetPlayerManager {
         playerList.add(netPlayer);
         return netPlayer;
     }
-    public static void putNetPlayer(NetPlayer netPlayer){
+
+    public static void putNetPlayer(NetPlayer netPlayer) {
         playerList.add(netPlayer);
     }
-    public static NetPlayer createNetPlayer(Context context){
+
+    public static NetPlayer createNetPlayer(Context context) {
         GameData mGameData = new GameData(context);
-        GameLevelTileData  mGameLevelTileData = new GameLevelTileData(context);
+        GameLevelTileData mGameLevelTileData = new GameLevelTileData(context);
         HashMap<Integer, ArrayList<Integer>> mGameTileTemplates = mGameData.getGameTileData();
         ArrayList<ArrayList<Integer>> mPlayerUnitTemplates = mGameData.getPlayerUnitData();
         PlayerUnit playerUnit = new PlayerUnit(context, mPlayerUnitTemplates.get(0).get(GameData.FIELD_ID_DRAWABLE));
         Random random = new Random();
         int i = random.nextInt(4);
         Point point = positions[0];
-        playerUnit.setX(point.x* playerUnit.getWidth());
-        playerUnit.setY(point.y* playerUnit.getHeight());
+        playerUnit.setX(point.x * playerUnit.getWidth());
+        playerUnit.setY(point.y * playerUnit.getHeight());
         NetPlayer netPlayer = new NetPlayer();
         netPlayer.setPlayerUnit(playerUnit);
         netPlayer.setId(System.currentTimeMillis());
         playerList.add(netPlayer);
         return netPlayer;
     }
-    public static  boolean isHaveNetPlayer(long id){
+
+    public static boolean isHaveNetPlayer(long id) {
         boolean flag = false;
-        for(NetPlayer netPlayer:playerList){
-            if(netPlayer.getId()==id){
+        for (NetPlayer netPlayer : playerList) {
+            if (netPlayer.getId() == id) {
                 flag = true;
                 break;
             }
         }
         return flag;
     }
-    public static void setMyPlayer(NetPlayer netPlayer){
+
+    public static void setMyPlayer(NetPlayer netPlayer) {
         my = netPlayer;
     }
-    public static NetPlayer getMyPlayer(){
+
+    public static NetPlayer getMyPlayer() {
         return my;
     }
 }

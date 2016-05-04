@@ -13,12 +13,12 @@ public class StreamUtil {
         int length = 0;
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         try {
-            while((length=is.read(bytes))!=-1){
-                os.write(bytes,0,length);
+            while ((length = is.read(bytes)) != -1) {
+                os.write(bytes, 0, length);
             }
             os.flush();
-            String result = new String(os.toByteArray(),"UTF-8");
-            return  result;
+            String result = new String(os.toByteArray(), "UTF-8");
+            return result;
         } catch (IOException e) {
             e.printStackTrace();
         }

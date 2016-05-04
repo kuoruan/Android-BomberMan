@@ -12,10 +12,6 @@ public class NetPlayer {
 
     private PlayerUnit mPlayerUnit;
 
-
-
-
-
     public PlayerUnit getPlayerUnit() {
         return mPlayerUnit;
     }

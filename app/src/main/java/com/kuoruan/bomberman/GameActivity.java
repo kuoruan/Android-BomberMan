@@ -26,10 +26,10 @@ public class GameActivity extends Activity {
     private DisplayMetrics mMetrics = new DisplayMetrics();
     private float mScreenDensity;
     private Context mMContext;
-    private Handler mHandler = new Handler(){
+    private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            Toast.makeText(mMContext,"start...",Toast.LENGTH_LONG);
+            Toast.makeText(mMContext, "start...", Toast.LENGTH_LONG);
             super.handleMessage(msg);
         }
     };

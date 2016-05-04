@@ -38,7 +38,7 @@ public class UdpServerThread extends Thread {
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     server.receive(packet);
                     String s = new String(packet.getData(), 0, packet.getLength(), "utf-8");
-                    System.out.println("server:" +   packet.getAddress());
+                    System.out.println("server:" + packet.getAddress());
                     System.out.println("receive:" + s);
                     JSONObject jsonObject = new JSONObject(s.trim());
                     switch (jsonObject.getInt("code")) {
@@ -88,10 +88,10 @@ public class UdpServerThread extends Thread {
             id = jsonObject.getLong("id");
             int x = jsonObject.getInt("pointX");
             int y = jsonObject.getInt("pointY");
-            if(NetPlayerManager.isHaveNetPlayer(id)){
-                for(NetPlayer netPlayer:NetPlayerManager.getNetPlayerList()){
-                    if(netPlayer.getId()==id){
-                       return;
+            if (NetPlayerManager.isHaveNetPlayer(id)) {
+                for (NetPlayer netPlayer : NetPlayerManager.getNetPlayerList()) {
+                    if (netPlayer.getId() == id) {
+                        return;
                     }
                 }
             }
