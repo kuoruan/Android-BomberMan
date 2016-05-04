@@ -3,10 +3,17 @@ package com.kuoruan.bomberman;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Window;
+import android.widget.Toast;
 
+import com.kuoruan.bomberman.net.NetPlayer;
+import com.kuoruan.bomberman.net.NetPlayerManager;
+import com.kuoruan.bomberman.net.UdpClient;
+import com.kuoruan.bomberman.net.UdpServerThread;
 import com.kuoruan.bomberman.view.GameView;
 
 /**
@@ -18,12 +25,21 @@ public class GameActivity extends Activity {
 
     private DisplayMetrics mMetrics = new DisplayMetrics();
     private float mScreenDensity;
+    private Context mMContext;
+    private Handler mHandler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            Toast.makeText(mMContext,"start...",Toast.LENGTH_LONG);
+            super.handleMessage(msg);
+        }
+    };
+    private NetPlayer mNetPlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Context mContext = getApplicationContext();
+        mMContext = getApplicationContext();
 
         /**
          * Get the screen density that all pixel values will be based on.
@@ -40,10 +56,15 @@ public class GameActivity extends Activity {
          * In a real game, the user's chosen stage / level should be
          * passed to this activity.
          */
+        new UdpServerThread(mMContext).start();
+        mNetPlayer = NetPlayerManager.createNetPlayer(mMContext);
+        NetPlayerManager.setMyPlayer(mNetPlayer);
+        UdpClient.noticeAddPlayer(mNetPlayer);
         int stage = 0;
 
+
         Log.d("Tile Game Example", "Starting game at stage: " + stage);
-        mGameView = new GameView(mContext, this, GameView.MULTI_PLAYER_STAGE, mScreenDensity);
+        mGameView = new GameView(mMContext, this, GameView.MULTI_PLAYER_STAGE, mScreenDensity, mNetPlayer);
 
         setContentView(mGameView);
     }
