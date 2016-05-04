@@ -36,6 +36,8 @@ public class PlayerUnit extends GameImage {
     //竖直方向
     private int mPlayerHorizontalDirection = 0;
 
+
+
     public PlayerUnit(Context context, int drawable) {
         super(context, drawable);
         this.id = count;
