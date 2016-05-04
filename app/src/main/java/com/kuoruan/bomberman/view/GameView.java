@@ -257,7 +257,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 Log.i(TAG, "updatePlayerUnit: X = " + newX + " Y = " + newY);
                 //处理冲突
                 sovleConflict(newX, newY, mPlayer.getWidth(), mPlayer.getHeight());
-                if (conflict.isSovleable()) {
+                if (conflict.isSolvable()) {
                     mPlayer.setX(conflict.getNewX());
                     mPlayer.setY(conflict.getNewY());
                     UdpClient.noticePlayerMove(mNetPlayer);
@@ -352,7 +352,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
         //获取冲撞对象
         private void sovleConflict(int x, int y, int width, int height) {
-            conflict.setSovleable(true);
+            conflict.setSolvable(true);
             conflict.setNewX(x);
             conflict.setNewY(y);
             //遍历地图对象
@@ -364,7 +364,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
                     if (gameTile.getCollision(x, y, width, height)) {
                         conflict.setCollisionTile(gameTile);
-                        conflict.sovleConfict(gameTile, x, y, width, height);
+                        conflict.solveConflict(gameTile, x, y, width, height);
                         Log.i(TAG, "conflict:" + conflict.toString());
                     }
                 }
