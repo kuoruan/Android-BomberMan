@@ -10,7 +10,7 @@ public class PlayerUnit extends GameImage {
     public static final int STATE_MOVING = 1;
     public static final int STATE_STOP = 2;
     //默认移动速度
-    public static final int DEFAULT_SPEED = 3;
+    public static final int DEFAULT_SPEED = 1;
     //默认炸弹数量
     public static final int DEFAULT_BOMBS = 2;
     //角色移动方向
@@ -35,6 +35,8 @@ public class PlayerUnit extends GameImage {
     private int mPlayerVerticalDirection = 0;
     //竖直方向
     private int mPlayerHorizontalDirection = 0;
+
+
 
     public PlayerUnit(Context context, int drawable) {
         super(context, drawable);
