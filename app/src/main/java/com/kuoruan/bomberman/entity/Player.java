@@ -1,34 +1,31 @@
 package com.kuoruan.bomberman.entity;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 
 /**
  * 玩家角色
  */
-public class PlayerUnit extends GameImage {
+public class Player extends GameImage {
     //角色状态
     public static final int STATE_MOVING = 1;
     public static final int STATE_STOP = 2;
+    public static final int STATE_DIE = 3;
     //默认移动速度
     public static final int DEFAULT_SPEED = 3;
-    //默认炸弹数量
-    public static final int DEFAULT_BOMBS = 2;
     //角色移动方向
     public static final int DIRECTION_UP = 1;
     public static final int DIRECTION_DOWN = 2;
     public static final int DIRECTION_LEFT = 3;
     public static final int DIRECTION_RIGHT = 4;
+    //角色死亡
+    public static final int PLAYER_DIE = 5;
 
-    //当前玩家数量
-    private static int count = 1;
-
-    private int id = 0;
+    private long id = 0;
     //角色状态
     private int mState = 0;
     //角色移动速度
     private int mSpeed = DEFAULT_SPEED;
-    //炸弹数量
-    private int mBombs = DEFAULT_BOMBS;
     //当前分数
     private int mScore = 0;
     //水平方向
@@ -36,24 +33,23 @@ public class PlayerUnit extends GameImage {
     //竖直方向
     private int mPlayerHorizontalDirection = 0;
 
+    private int mTemplateId = 0;
 
+    public Player(Bitmap bitmap, int templateId) {
+        super(bitmap);
+        this.mTemplateId = templateId;
+    }
 
-    public PlayerUnit(Context context, int drawable) {
+    public Player(Context context, int drawable) {
         super(context, drawable);
-        this.id = count;
-        count++;
     }
 
-    public static int getCount() {
-        return count;
+    public long getId() {
+        return id;
     }
 
-    public static void resetCount() {
-        count = 1;
-    }
-
-    public int getId() {
-        return this.id;
+    public void setId(long id) {
+        this.id = id;
     }
 
     public void addSpeed() {
@@ -62,10 +58,6 @@ public class PlayerUnit extends GameImage {
 
     public int getSpeed() {
         return this.mSpeed;
-    }
-
-    public void addBomb() {
-        this.mBombs++;
     }
 
     public void addScore(int score) {
@@ -104,4 +96,15 @@ public class PlayerUnit extends GameImage {
         return (this.mState == STATE_MOVING);
     }
 
+    public boolean isAlive() {
+        return (this.mState != STATE_DIE);
+    }
+
+    public int getTemplateId() {
+        return mTemplateId;
+    }
+
+    public void setTemplateId(int templateId) {
+        mTemplateId = templateId;
+    }
 }

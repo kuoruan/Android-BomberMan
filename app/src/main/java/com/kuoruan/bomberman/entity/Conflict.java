@@ -6,10 +6,6 @@ import android.util.Log;
  * Created by Window10 on 2016/5/3.
  */
 public class Conflict {
-    public static final int LEFT_UP = 1;
-    public static final int LEFT_DOWN = 2;
-    public static final int RIGHT_UP = 3;
-    public static final int RIGHT_DOWN = 4;
     public static final int SOLVE_LENGTH = 15;
     private static final String TAG = "Conflict";
     private GameTile mCollisionTile;
@@ -70,14 +66,12 @@ public class Conflict {
                 '}';
     }
 
-    public void solveConflict(GameTile gameTile, int x, int y, int width, int height) {
-        Log.i(TAG, "Conflict: gameTileX = " + gameTile.getX() + " gameTileY = " + gameTile.getY() + "    X:" + x + " " +
-                " Y:" + y);
-        int tileX = gameTile.getX();
-        int tileY = gameTile.getY();
+    public void solveConflict(int x, int y, int width, int height) {
+        int tileX = mCollisionTile.getX();
+        int tileY = mCollisionTile.getY();
         switch (mDirection) {
-            case PlayerUnit.DIRECTION_LEFT:
-            case PlayerUnit.DIRECTION_RIGHT:
+            case Player.DIRECTION_LEFT:
+            case Player.DIRECTION_RIGHT:
                 if (y > tileY) {
                     if (y + SOLVE_LENGTH > tileY + width) {
                         this.mSolvable = true;
@@ -94,8 +88,8 @@ public class Conflict {
                     }
                 }
                 break;
-            case PlayerUnit.DIRECTION_UP:
-            case PlayerUnit.DIRECTION_DOWN:
+            case Player.DIRECTION_UP:
+            case Player.DIRECTION_DOWN:
                 if (x > tileX) {
                     if (x + SOLVE_LENGTH > tileX + width) {
                         this.mSolvable = true;

@@ -2,8 +2,9 @@ package com.kuoruan.bomberman.entity;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Point;
+
+import com.kuoruan.bomberman.util.BitmapManager;
 
 /**
  * 基础图片对象，包含图片宽高和在屏幕上的坐标位置
@@ -16,8 +17,13 @@ public class GameImage {
     protected int mWidth = 0;
     protected int mHeight = 0;
 
-    public GameImage(Context context) {
+    public GameImage() {
+    }
 
+    public GameImage(Bitmap bitmap) {
+        this.mImg = bitmap;
+        this.mWidth = bitmap.getWidth();
+        this.mHeight = bitmap.getHeight();
     }
 
     public GameImage(Context context, int drawable) {
@@ -29,9 +35,7 @@ public class GameImage {
     }
 
     public void setDrawable(Context context, int drawable, int width, int height) {
-        BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inJustDecodeBounds = true;
-        this.mImg = BitmapFactory.decodeResource(context.getResources(), drawable);
+        this.mImg = BitmapManager.setAndGetBitmap(context, drawable);
         setWidthAndHeight(width, height);
     }
 
@@ -113,5 +117,16 @@ public class GameImage {
     public void setPoint(Point point) {
         this.mX = point.x;
         this.mY = point.y;
+    }
+
+    public Point getPoint() {
+        return new Point(this.mX, this.mY);
+    }
+
+    public Point getStandardPoint() {
+        int newX = (int) ((float) mX / mWidth + .5) * mWidth;
+        int newY = (int) ((float) mY / mHeight + .5) * mHeight;
+
+        return new Point(newX, newY);
     }
 }

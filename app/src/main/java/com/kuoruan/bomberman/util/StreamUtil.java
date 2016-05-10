@@ -1,4 +1,4 @@
-package com.kuoruan.bomberman.net;
+package com.kuoruan.bomberman.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

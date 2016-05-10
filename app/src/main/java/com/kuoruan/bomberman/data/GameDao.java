@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import com.kuoruan.bomberman.R;
+import com.kuoruan.bomberman.entity.Bomb;
 import com.kuoruan.bomberman.entity.GameTile;
 import com.kuoruan.bomberman.view.GameView;
 
@@ -27,7 +28,7 @@ public class GameDao extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_GAME_DATA);
         db.execSQL(CREATE_TABLE_GAME_LEVEL_TILES);
 
-        for (String query : POPULATE_TABLE_GAME_TILES) {
+        for (String query : POPULATE_TABLE_GAME_DATA) {
             db.execSQL(query);
         }
 
@@ -60,7 +61,7 @@ public class GameDao extends SQLiteOpenHelper {
             + GameLevelTileData.TILE_DATA + " TEXT NOT NULL"
             + ");";
 
-    private static final String[] POPULATE_TABLE_GAME_TILES = {
+    private static final String[] POPULATE_TABLE_GAME_DATA = {
             "INSERT INTO " + GameData.TABLE_NAME + " VALUES "
                     + "(1," + GameData.TYPE_TILE + "," + GameTile.TYPE_OBSTACLE + "," + R.drawable.tile_01 + ",1);",
 
@@ -71,23 +72,29 @@ public class GameDao extends SQLiteOpenHelper {
                     + "(3," + GameData.TYPE_TILE + "," + GameTile.TYPE_CRATES + "," + R.drawable.tile_03 + ",1);",
 
             "INSERT INTO " + GameData.TABLE_NAME + " VALUES "
-                    + "(4," + GameData.TYPE_PLAYER + ",0," + R.drawable.player_unit + ",1);",
+                    + "(4," + GameData.TYPE_PLAYER + ",0," + R.drawable.player_1 + ",1);",
+
+            "INSERT INTO " + GameData.TABLE_NAME + " VALUES "
+                    + "(5," + GameData.TYPE_BOMB + "," + Bomb.TYPE_NORMAL + "," + R.drawable.bomb_1_0 + ",1);",
+
+            "INSERT INTO " + GameData.TABLE_NAME + " VALUES "
+                    + "(6," + GameData.TYPE_BOMB + "," + Bomb.TYPE_NORMAL + "," + R.drawable.bomb_1_1 + ",1);",
 
     };
 
     private static final String[] POPULATE_TABLE_GAME_LEVEL_TILES = {
             "INSERT INTO " + GameLevelTileData.TABLE_NAME + " VALUES "
                     + "(null," + GameView.MULTI_PLAYER_STAGE + ",1,1,\""
-                  // 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17
+                    // 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17
         /* 1  */ + "01,01,01,01,01,01,01,01,01,01,01,01,01,01,01,01,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
         /* 2  */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
         /* 3  */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
         /* 4  */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
         /* 5  */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
-		/* 6  */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
-		/* 7  */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
-		/* 8  */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
-		/* 9  */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
+        /* 6  */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
+        /* 7  */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
+        /* 8  */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
+        /* 9  */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
 		/* 10 */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
 		/* 11 */ + "01,00,02,00,02,00,02,00,02,00,02,00,02,00,02,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK
 		/* 12 */ + "01,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01" + GameLevelTileData.TILE_DATA_LINE_BREAK

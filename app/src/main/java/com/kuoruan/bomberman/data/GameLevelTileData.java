@@ -5,6 +5,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static android.provider.BaseColumns._ID;
 
@@ -37,9 +38,9 @@ public class GameLevelTileData extends GameDao {
      * @param stage stage - The game stage.
      * @return ArrayList
      */
-    public ArrayList<String> getGameLevelData(int stage) {
+    public List<String> getGameLevelData(int stage) {
 
-        ArrayList<String> levelData = new ArrayList<String>();
+        List<String> levelData = new ArrayList<String>();
 
         SQLiteDatabase db = this.getReadableDatabase();
 
@@ -47,7 +48,6 @@ public class GameLevelTileData extends GameDao {
         String where = STAGE + " = " + stage;
 
         Cursor cursor = db.query(TABLE_NAME, from, where, null, null, null, null);
-
 
         if (cursor != null) {
             while (cursor.moveToNext()) {

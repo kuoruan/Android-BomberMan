@@ -16,17 +16,22 @@ import com.kuoruan.bomberman.GameActivity;
 import com.kuoruan.bomberman.R;
 import com.kuoruan.bomberman.data.GameData;
 import com.kuoruan.bomberman.data.GameLevelTileData;
+import com.kuoruan.bomberman.entity.Animation;
+import com.kuoruan.bomberman.entity.Bomb;
 import com.kuoruan.bomberman.entity.Conflict;
+import com.kuoruan.bomberman.entity.Fire;
 import com.kuoruan.bomberman.entity.GameTile;
 import com.kuoruan.bomberman.entity.GameUi;
-import com.kuoruan.bomberman.entity.PlayerUnit;
-import com.kuoruan.bomberman.net.NetPlayer;
-import com.kuoruan.bomberman.net.NetPlayerManager;
+import com.kuoruan.bomberman.entity.Player;
+import com.kuoruan.bomberman.entity.Scene;
+import com.kuoruan.bomberman.util.BombManager;
+import com.kuoruan.bomberman.util.SceneManager;
+import com.kuoruan.bomberman.util.PlayerManager;
 import com.kuoruan.bomberman.net.UdpClient;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 游戏地图view
@@ -34,6 +39,8 @@ import java.util.List;
 public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
     private static final String TAG = "GameView";
+    //每30毫秒刷新一次屏幕
+    public static final int TIME_IN_FRAME = 30;
     //控制按钮边距
     private static final int CONTROLS_PADDING = 10;
     //游戏状态
@@ -48,17 +55,16 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private int mScreenYMax = 0;
     private int mScreenXCenter = 0;
     private int mScreenYCenter = 0;
+
     //场景大小
-    private int mSceneXMax = 0;
-    private int mSceneYMax = 0;
+    private static int mSceneXMax = 0;
+    private static int mSceneYMax = 0;
+
     /**
      * 屏幕偏移
      */
     private int mScreenXOffset = 0;
     private int mScreenYOffset = 0;
-    //砖块宽高
-    private int mTileWidth = 0;
-    private int mTileHeight = 0;
 
     private int mPlayerStartTileX = 0;
     private int mPlayerStartTileY = 0;
@@ -80,8 +86,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private GameLevelTileData mGameLevelTileData = null;
 
     //当前玩家
-    PlayerUnit mPlayer = null;
-    NetPlayer mNetPlayer;
+    Animation mDynamicPlayer = null;
+    Player mPlayer = null;
 
     //文字画笔
     private Paint mUiTextPaint = null;
@@ -93,94 +99,88 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private GameUi mCtrlDownArrow = null;
     private GameUi mCtrlLeftArrow = null;
     private GameUi mCtrlRightArrow = null;
+    private GameUi mSetBombButton = null;
     //背景图片
     private Bitmap mBackgroundImage = null;
 
-    //数据库中的游戏信息
-    private HashMap<Integer, ArrayList<Integer>> mGameTileTemplates = null;
-    private ArrayList<ArrayList<Integer>> mPlayerUnitTemplates = null;
-
-    private HashMap<Integer, Bitmap> mGameTileBitmaps = new HashMap<Integer, Bitmap>();
     //地图对象数组
-    private List<GameTile> mGameTiles = new ArrayList<GameTile>();
-    //玩家数组
-    private List<PlayerUnit> mPlayers = new ArrayList<PlayerUnit>();
-    private List<NetPlayer> mNetPlayers = NetPlayerManager.getNetPlayerList();
+    private List<GameTile> mGameTiles = SceneManager.getGameTiles();
+    private Map<Long, Animation> mPlayers = PlayerManager.getPlayerMap();
+    private List<Animation> mBombs = BombManager.getBombList();
+    private List<Animation> mFires = BombManager.getFireList();
+    //冲突对象
+    Conflict mConflict = new Conflict();
     //游戏主线程
-    private GameThread thread;
-    //
-    Conflict conflict = new Conflict();
+    private GameThread mThread;
 
     public GameView(Context context) {
         super(context);
     }
 
-    public GameView(Context context, GameActivity activity, int stage, float screenDensity, NetPlayer mNetPlayer) {
-        this(context, activity, stage, screenDensity);
-        this.mPlayer = mNetPlayer.getPlayerUnit();
-        this.mNetPlayer = mNetPlayer;
-        mPlayerStage = stage;
-        mGameData = new GameData(context);
-        mGameLevelTileData = new GameLevelTileData(context);
-
-        mGameTileTemplates = mGameData.getGameTileData();
-        mPlayerUnitTemplates = mGameData.getPlayerUnitData();
-
-        SurfaceHolder holder = getHolder();
-        holder.addCallback(this);
-
-        // create thread only; it's started in surfaceCreated()
-        thread = new GameThread(holder, context);
-
-        setFocusable(true);
-
-        startLevel();
-        thread.doStart();
-    }
-
     public GameView(Context context, GameActivity activity, int stage, float screenDensity) {
         super(context);
-
         mGameContext = context;
         mGameActivity = activity;
 
         mScreenDensity = screenDensity;
+        mPlayerStage = stage;
+        mGameData = new GameData(context);
+        mGameLevelTileData = new GameLevelTileData(context);
+
+        SceneManager.setGameTileData(mGameData.getGameTileData());
+        PlayerManager.setPlayerData(mGameData.getPlayerData());
+        BombManager.setBombData(mGameData.getBombData());
+
+        mDynamicPlayer = PlayerManager.createDynamicPlayer(context);
+        mPlayer = PlayerManager.getMyPlayer();
+        UdpClient.noticeAddPlayer(mPlayer);
+
+        SurfaceHolder holder = getHolder();
+        holder.addCallback(this);
+
+        // create mThread only; it's started in surfaceCreated()
+        mThread = new GameThread(holder, context);
+
+        setFocusable(true);
+
+        startLevel();
+        mThread.doStart();
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        if (thread.getState() == Thread.State.TERMINATED) {
-            thread = new GameThread(holder, getContext());
-            thread.setRunning(true);
-            thread.start();
-            thread.doStart();
+        if (mThread.getState() == Thread.State.TERMINATED) {
+            mThread = new GameThread(holder, getContext());
+            mThread.setRunning(true);
+            mThread.start();
+            mThread.doStart();
             startLevel();
         } else {
-            thread.setRunning(true);
-            thread.start();
+            mThread.setRunning(true);
+            mThread.start();
         }
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        thread.setSurfaceSize(width, height);
+        mThread.setSurfaceSize(width, height);
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if (thread.getState() == Thread.State.TERMINATED) {
-            thread = new GameThread(holder, getContext());
-            thread.setRunning(true);
-            thread.start();
-            thread.doStart();
+        if (mThread.getState() == Thread.State.TERMINATED) {
+            mThread = new GameThread(holder, getContext());
+            mThread.setRunning(true);
+            mThread.start();
+            mThread.doStart();
             startLevel();
         } else {
-            thread.setRunning(true);
-            thread.start();
+            mThread.setRunning(true);
+            mThread.start();
         }
     }
 
-    class GameThread extends Thread {
+    public class GameThread extends Thread {
         public GameThread(SurfaceHolder surfaceHolder, Context context) {
             mGameSurfaceHolder = surfaceHolder;
             mGameContext = context;
@@ -199,12 +199,14 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         @Override
         public void run() {
             while (mGameRun) {
+                //取得更新游戏之前的时间
+                long startTime = System.currentTimeMillis();
                 Canvas canvas = null;
                 try {
-                    canvas = mGameSurfaceHolder.lockCanvas();
                     synchronized (mGameSurfaceHolder) {
+                        canvas = mGameSurfaceHolder.lockCanvas();
                         if (mGameState == STATE_RUNNING) {
-                            updatePlayerUnit();
+                            updatePlayer();
                         }
                         doDraw(canvas);
                     }
@@ -212,6 +214,17 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                     if (canvas != null) {
                         mGameSurfaceHolder.unlockCanvasAndPost(canvas);
                     }
+                }
+
+                long endTime = System.currentTimeMillis();
+                //计算出游戏一次更新的毫秒数
+                int diffTime = (int) (endTime - startTime);
+
+                //确保每次更新时间为30毫秒
+                while (diffTime <= TIME_IN_FRAME) {
+                    diffTime = (int) (System.currentTimeMillis() - startTime);
+                    //线程等待
+                    Thread.yield();
                 }
 
             }
@@ -230,8 +243,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         }
 
         //更新自身游戏角色位置
-        private void updatePlayerUnit() {
-            if (mPlayer.isMoving()) {
+        private void updatePlayer() {
+            if (mPlayer != null && mPlayer.isMoving()) {
                 int differenceX;
                 int differenceY;
                 int newX = mPlayer.getX();
@@ -241,58 +254,34 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 int playerSpeed = mPlayer.getSpeed();
 
                 if (playerHorizontalDirection != 0) {
-                    conflict.setDirection(playerHorizontalDirection);
-                    differenceX = (playerHorizontalDirection == PlayerUnit.DIRECTION_RIGHT) ?
-                            getPixelValueForDensity(playerSpeed) : getPixelValueForDensity(-playerSpeed);
+                    mConflict.setDirection(playerHorizontalDirection);
+                    differenceX = (playerHorizontalDirection == Player.DIRECTION_RIGHT) ? getPixelValueForDensity
+                            (playerSpeed) : getPixelValueForDensity(-playerSpeed);
                     newX = (mPlayer.getX() + differenceX);
+                    mDynamicPlayer.setFrameBitmap(PlayerManager.getMyPlayerBitmaps(playerHorizontalDirection));
                 }
 
                 if (playerVerticalDirection != 0) {
-                    conflict.setDirection(playerVerticalDirection);
-                    differenceY = (playerVerticalDirection == PlayerUnit.DIRECTION_DOWN) ?
+                    mConflict.setDirection(playerVerticalDirection);
+                    differenceY = (playerVerticalDirection == Player.DIRECTION_DOWN) ?
                             getPixelValueForDensity(playerSpeed) : getPixelValueForDensity(-playerSpeed);
                     newY = (mPlayer.getY() + differenceY);
+                    mDynamicPlayer.setFrameBitmap(PlayerManager.getMyPlayerBitmaps(playerVerticalDirection));
                 }
 
-                Log.i(TAG, "updatePlayerUnit: X = " + newX + " Y = " + newY);
+                Log.i(TAG, "updatePlayer: X = " + newX + " Y = " + newY);
                 //处理冲突
-                sovleConflict(newX, newY, mPlayer.getWidth(), mPlayer.getHeight());
-                if (conflict.isSolvable()) {
-                    mPlayer.setX(conflict.getNewX());
-                    mPlayer.setY(conflict.getNewY());
-                    UdpClient.noticePlayerMove(mNetPlayer);
+                solveConflict(newX, newY, mPlayer.getWidth(), mPlayer.getHeight());
+                if (mConflict.isSolvable()) {
+                    mPlayer.setX(mConflict.getNewX());
+                    mPlayer.setY(mConflict.getNewY());
+                    UdpClient.noticePlayerMove(mPlayer);
                 } else {
-                    handleTileCollision(conflict.getCollisionTile());
+                    handleTileCollision(mConflict.getCollisionTile());
                 }
-
+                mDynamicPlayer.doAnimation();
                 setViewOffset();
             }
-        }
-
-        private void setViewOffset() {
-            if (mSceneXMax == 0) {
-                return;
-            }
-
-            int playerX = mPlayer.getX();
-            int playerY = mPlayer.getY();
-
-            if (playerX >= mScreenXCenter) {
-                mScreenXOffset = playerX - mScreenXCenter;
-
-                if (mScreenXOffset > (mSceneXMax - mScreenXMax)) {
-                    mScreenXOffset = mSceneXMax - mScreenXMax;
-                }
-            }
-
-            if (playerY >= mScreenYCenter) {
-                mScreenYOffset = playerY - mScreenYCenter;
-
-                if (mScreenYOffset > (mSceneYMax - mScreenYMax)) {
-                    mScreenYOffset = mSceneYMax - mScreenYMax;
-                }
-            }
-
         }
 
         //绘制游戏元素
@@ -304,6 +293,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                     drawGameTiles(canvas);
                 }
 
+                drawBombs(canvas);
+                drawFires(canvas);
                 drawPlayers(canvas);
                 drawControls(canvas);
 
@@ -315,13 +306,60 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         private void drawPlayers(Canvas canvas) {
             int offsetX;
             int offsetY;
-            for (NetPlayer netPlayer : mNetPlayers) {
-                PlayerUnit playerUnit = netPlayer.getPlayerUnit();
-                offsetX = playerUnit.getX() - mScreenXOffset;
-                offsetY = playerUnit.getY() - mScreenYOffset;
+            Player player;
+            Iterator<Map.Entry<Long, Animation>> entry = mPlayers.entrySet().iterator();
 
-                Bitmap bitmap = playerUnit.getBitmap();
-                canvas.drawBitmap(bitmap, offsetX, offsetY, null);
+            while (entry.hasNext()) {
+                Animation dynamicPlayer = entry.next().getValue();
+                player = (Player) dynamicPlayer.getBaseObj();
+                offsetX = player.getX() - mScreenXOffset;
+                offsetY = player.getY() - mScreenYOffset;
+                if (!player.isAlive()) {
+                    mDynamicPlayer.doAnimation();
+                }
+                canvas.drawBitmap(player.getBitmap(), offsetX, offsetY, null);
+            }
+        }
+
+        //绘制炸弹
+        private void drawBombs(Canvas canvas) {
+            int offsetX;
+            int offsetY;
+
+            for (Animation dynamicBomb : mBombs) {
+                Bomb bomb = (Bomb) dynamicBomb.getBaseObj();
+                if (bomb.isExplosion()) {
+                    if (bomb.getPid() == mPlayer.getId()) {
+                        BombManager.decreaseBombCount();
+                    }
+                    mBombs.remove(dynamicBomb);
+                    continue;
+                }
+
+                offsetX = bomb.getX() - mScreenXOffset;
+                offsetY = bomb.getY() - mScreenYOffset;
+                dynamicBomb.doAnimation();
+                canvas.drawBitmap(bomb.getBitmap(), offsetX, offsetY, null);
+            }
+        }
+
+        //绘制炸弹
+        private void drawFires(Canvas canvas) {
+            int offsetX;
+            int offsetY;
+
+            for (Animation dynamicFire : mFires) {
+                Fire fire = (Fire) dynamicFire.getBaseObj();
+
+                if (dynamicFire.isEnd()) {
+                    mFires.remove(dynamicFire);
+                    continue;
+                }
+
+                offsetX = fire.getX() - mScreenXOffset;
+                offsetY = fire.getY() - mScreenYOffset;
+                dynamicFire.doAnimation();
+                canvas.drawBitmap(fire.getBitmap(), offsetX, offsetY, null);
             }
         }
 
@@ -348,13 +386,14 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             canvas.drawBitmap(mCtrlDownArrow.getBitmap(), mCtrlDownArrow.getX(), mCtrlDownArrow.getY(), null);
             canvas.drawBitmap(mCtrlLeftArrow.getBitmap(), mCtrlLeftArrow.getX(), mCtrlLeftArrow.getY(), null);
             canvas.drawBitmap(mCtrlRightArrow.getBitmap(), mCtrlRightArrow.getX(), mCtrlRightArrow.getY(), null);
+            canvas.drawBitmap(mSetBombButton.getBitmap(), mSetBombButton.getX(), mSetBombButton.getY(), null);
         }
 
         //获取冲撞对象
-        private void sovleConflict(int x, int y, int width, int height) {
-            conflict.setSolvable(true);
-            conflict.setNewX(x);
-            conflict.setNewY(y);
+        private void solveConflict(int x, int y, int width, int height) {
+            mConflict.setSolvable(true);
+            mConflict.setNewX(x);
+            mConflict.setNewY(y);
             //遍历地图对象
             for (GameTile gameTile : mGameTiles) {
                 if ((gameTile != null) && gameTile.isCollisionTile()) {
@@ -363,33 +402,14 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                     }
 
                     if (gameTile.getCollision(x, y, width, height)) {
-                        conflict.setCollisionTile(gameTile);
-                        conflict.solveConflict(gameTile, x, y, width, height);
-                        Log.i(TAG, "conflict:" + conflict.toString());
+                        mConflict.setCollisionTile(gameTile);
+                        mConflict.solveConflict(x, y, width, height);
+                        Log.i(TAG, "mConflict:" + mConflict.toString());
                     }
                 }
             }
-            conflict.setCollisionTile(null);
+            mConflict.setCollisionTile(null);
 
-        }
-
-        //处理冲突
-        private void handleTileCollision(GameTile gameTile) {
-            if (gameTile != null) {
-                switch (gameTile.getType()) {
-                    case GameTile.TYPE_OBSTACLE:
-                        Log.i(TAG, "handleTileCollision: 外岩");
-                        break;
-                    case GameTile.TYPE_ROCK:
-                        Log.i(TAG, "handleTileCollision: 普通岩石");
-                        break;
-                    case GameTile.TYPE_CRATES:
-                        Log.i(TAG, "handleTileCollision: 木箱子");
-                        break;
-                    default:
-                        Log.i(TAG, "handleTileCollision: 其他冲突");
-                }
-            }
         }
 
         //设置游戏状态
@@ -420,31 +440,69 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             }
         }
 
+        private void setGameStartState() {
+            setControlsStart();
+            setViewOffset();
+        }
+
+        //处理控制按钮
+        private void setControlsStart() {
+            if (mCtrlDownArrow == null) {
+                mCtrlDownArrow = new GameUi(mGameContext, R.drawable.ctrl_down_arrow);
+
+                mCtrlDownArrow.setX((mCtrlDownArrow.getWidth() + getPixelValueForDensity(CONTROLS_PADDING)));
+                mCtrlDownArrow.setY(mScreenYMax - (mCtrlDownArrow.getHeight() + getPixelValueForDensity
+                        (CONTROLS_PADDING)));
+            }
+
+            if (mCtrlUpArrow == null) {
+                mCtrlUpArrow = new GameUi(mGameContext, R.drawable.ctrl_up_arrow);
+
+                mCtrlUpArrow.setX(mCtrlDownArrow.getX());
+                mCtrlUpArrow.setY(mCtrlDownArrow.getY() - (mCtrlUpArrow.getHeight() * 2));
+            }
+
+            if (mCtrlLeftArrow == null) {
+                mCtrlLeftArrow = new GameUi(mGameContext, R.drawable.ctrl_left_arrow);
+                mCtrlLeftArrow.setX(mCtrlDownArrow.getX() - mCtrlLeftArrow.getWidth());
+                mCtrlLeftArrow.setY(mCtrlDownArrow.getY() - mCtrlLeftArrow.getHeight());
+            }
+
+            if (mCtrlRightArrow == null) {
+                mCtrlRightArrow = new GameUi(mGameContext, R.drawable.ctrl_right_arrow);
+
+                mCtrlRightArrow.setX(mCtrlLeftArrow.getX() + (mCtrlRightArrow.getWidth() * 2));
+                mCtrlRightArrow.setY(mCtrlLeftArrow.getY());
+            }
+
+            if (mSetBombButton == null) {
+                mSetBombButton = new GameUi(mGameContext, R.drawable.set_bomb);
+
+                mSetBombButton.setX(mScreenXMax - (mSetBombButton.getWidth() + getPixelValueForDensity
+                        (CONTROLS_PADDING)));
+                mSetBombButton.setY(mScreenYMax - (mSetBombButton.getHeight() * 2 + getPixelValueForDensity
+                        (CONTROLS_PADDING)));
+            }
+        }
+
     }
 
-
-    public GameThread getThread() {
-        return thread;
-    }
-
-    private void setGameStartState() {
-        setControlsStart();
-        //setPlayerStart();
+    public GameThread getGameThread() {
+        return mThread;
     }
 
     private void startLevel() {
         parseGameLevelData();
-        //setPlayerStart();
+        setViewOffset();
 
-        thread.unPause();
+        mThread.unPause();
     }
 
     //处理游戏数据
     private void parseGameLevelData() {
-
         updatingGameTiles = true;
 
-        ArrayList<String> gameLevelData = mGameLevelTileData.getGameLevelData(mPlayerStage);
+        List<String> gameLevelData = mGameLevelTileData.getGameLevelData(mPlayerStage);
         String levelTileData = gameLevelData.get(GameLevelTileData.FIELD_ID_TILE_DATA);
 
         if (levelTileData == null) {
@@ -455,146 +513,82 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         mPlayerStartTileX = Integer.parseInt(gameLevelData.get(GameLevelTileData.FIELD_ID_PLAYER_START_TILE_X));
         mPlayerStartTileY = Integer.parseInt(gameLevelData.get(GameLevelTileData.FIELD_ID_PLAYER_START_TILE_Y));
 
-        // Clear any existing loaded game tiles.
-        mGameTiles.clear();
-
-        // Split level tile data by line.
-        String[] tileLines = levelTileData.split(GameLevelTileData.TILE_DATA_LINE_BREAK);
-
-        Bitmap bitmap = null;
-        Point tilePoint = new Point(0, 0);
-        int tileX = 0;
-        int tileY = 0;
-
-        // Loop through each line of the level tile data.
-        for (String tileLine : tileLines) {
-            tileX = 0;
-
-            // Split tile data line by tile delimiter, producing an array of tile IDs.
-            String[] tiles = tileLine.split(",");
-
-            // Loop through the tile IDs, creating a new GameTile instance for each one.
-            for (String tile : tiles) {
-                // Get tile definition for the current tile ID.
-                ArrayList<Integer> tileData = mGameTileTemplates.get(Integer.parseInt(tile));
-
-                // Check for valid tile data.
-                if ((tileData != null) && (tileData.size() > 0) && (tileData.get(GameData.FIELD_ID_DRAWABLE) > 0)) {
-                    // Set tile position.
-                    tilePoint.x = tileX;
-                    tilePoint.y = tileY;
-
-                    GameTile gameTile = new GameTile(mGameContext, tilePoint);
-
-                    bitmap = setAndGetGameTileBitmap(tileData.get(GameData.FIELD_ID_DRAWABLE));
-                    gameTile.setBitmap(bitmap);
-
-                    // Set tile type.
-                    gameTile.setType(tileData.get(GameData.FIELD_ID_TYPE));
-
-                    // Set tile visibility.
-                    if (tileData.get(GameData.FIELD_ID_VISIBLE) == 0) {
-                        gameTile.setVisible(false);
-                    }
-
-                    // If undefined, set global tile width / height values.
-                    if (mTileWidth == 0) {
-                        mTileWidth = gameTile.getWidth();
-                    }
-                    if (mTileHeight == 0) {
-                        mTileHeight = gameTile.getHeight();
-                    }
-
-                    if (mSceneXMax == 0 && tiles.length > 0) {
-                        mSceneXMax = tiles.length * mTileWidth;
-                    }
-                    if (mSceneYMax == 0 && tileLines.length > 0) {
-                        mSceneYMax = tileLines.length * mTileWidth;
-                    }
-
-                    // Add new game tile to loaded game tiles.
-                    mGameTiles.add(gameTile);
-                }
-
-                // Increment next tile X (horizontal) position by tile width.
-                tileX += mTileWidth;
-            }
-
-            // Increment next tile Y (vertical) position by tile width.
-            tileY += mTileHeight;
-        }
-
+        //处理地图数据
+        Scene scene = SceneManager.parseGameTileData(mGameContext, levelTileData);
+        mSceneXMax = scene.getSceneXMax();
+        mSceneYMax = scene.getSceneYMax();
         updatingGameTiles = false;
-
     }
 
-    //处理控制按钮
-    private void setControlsStart() {
-        if (mCtrlDownArrow == null) {
-            mCtrlDownArrow = new GameUi(mGameContext, R.drawable.ctrl_down_arrow);
-
-            mCtrlDownArrow.setX(mScreenXMax - ((mCtrlDownArrow.getWidth() * 2) + getPixelValueForDensity
-                    (CONTROLS_PADDING)));
-            mCtrlDownArrow.setY(mScreenYMax - (mCtrlDownArrow.getHeight() + getPixelValueForDensity
-                    (CONTROLS_PADDING)));
+    /**
+     * 计算屏幕偏移
+     */
+    private void setViewOffset() {
+        if (mSceneXMax == 0) {
+            return;
         }
 
-        if (mCtrlUpArrow == null) {
-            mCtrlUpArrow = new GameUi(mGameContext, R.drawable.ctrl_up_arrow);
+        int playerX = mPlayer.getX();
+        int playerY = mPlayer.getY();
 
-            mCtrlUpArrow.setX(mCtrlDownArrow.getX());
-            mCtrlUpArrow.setY(mCtrlDownArrow.getY() - (mCtrlUpArrow.getHeight() * 2));
+        if (playerX >= mScreenXCenter) {
+            mScreenXOffset = playerX - mScreenXCenter;
+
+            if (mScreenXOffset > (mSceneXMax - mScreenXMax)) {
+                mScreenXOffset = mSceneXMax - mScreenXMax;
+            }
         }
 
-        if (mCtrlLeftArrow == null) {
-            mCtrlLeftArrow = new GameUi(mGameContext, R.drawable.ctrl_left_arrow);
-            mCtrlLeftArrow.setX(mCtrlDownArrow.getX() - mCtrlLeftArrow.getWidth());
-            mCtrlLeftArrow.setY(mCtrlDownArrow.getY() - mCtrlLeftArrow.getHeight());
+        if (playerY >= mScreenYCenter) {
+            mScreenYOffset = playerY - mScreenYCenter;
+
+            if (mScreenYOffset > (mSceneYMax - mScreenYMax)) {
+                mScreenYOffset = mSceneYMax - mScreenYMax;
+            }
         }
 
-        if (mCtrlRightArrow == null) {
-            mCtrlRightArrow = new GameUi(mGameContext, R.drawable.ctrl_right_arrow);
-
-            mCtrlRightArrow.setX(mScreenXMax - (mCtrlLeftArrow.getWidth() + getPixelValueForDensity(CONTROLS_PADDING)));
-            mCtrlRightArrow.setY(mCtrlLeftArrow.getY());
-        }
     }
 
     //处理点击触摸事件
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        int eventAction = event.getAction();
 
-        switch (eventAction) {
+        if (!mPlayer.isAlive()) {
+            Log.i(TAG, "onTouchEvent: 角色已死亡");
+            return false;
+        }
+
+        int x = (int) event.getX(0);
+        int y = (int) event.getY(0);
+        switch (event.getAction() & MotionEvent.ACTION_MASK) {
+            case MotionEvent.ACTION_POINTER_DOWN:
+                //获取第二个按下点的坐标
+                x = (int) event.getX(1);
+                y = (int) event.getY(1);
             case MotionEvent.ACTION_DOWN:
 
                 if (mGameState == STATE_RUNNING) {
-                    final int x = (int) event.getX();
-                    final int y = (int) event.getY();
-
-                    if (mCtrlUpArrow.getImpact(x, y)) {
-                        Log.i(TAG, "onTouchEvent: Up");
-                        mPlayer.setPlayerVerticalDirection(PlayerUnit.DIRECTION_UP);
-                        mPlayer.setState(PlayerUnit.STATE_MOVING);
+                    if (mSetBombButton.getImpact(x, y)) {
+                        BombManager.setBomb(mGameContext);
+                    } else if (mCtrlUpArrow.getImpact(x, y)) {
+                        mPlayer.setPlayerVerticalDirection(Player.DIRECTION_UP);
+                        mPlayer.setState(Player.STATE_MOVING);
                     } else if (mCtrlDownArrow.getImpact(x, y)) {
-                        Log.d("Tile Game Example", "Pressed down arrow");
-                        mPlayer.setPlayerVerticalDirection(PlayerUnit.DIRECTION_DOWN);
-                        mPlayer.setState(PlayerUnit.STATE_MOVING);
+                        mPlayer.setPlayerVerticalDirection(Player.DIRECTION_DOWN);
+                        mPlayer.setState(Player.STATE_MOVING);
                     } else if (mCtrlLeftArrow.getImpact(x, y)) {
-                        Log.d("Tile Game Example", "Pressed left arrow");
-                        mPlayer.setPlayerHorizontalDirection(PlayerUnit.DIRECTION_LEFT);
-                        mPlayer.setState(PlayerUnit.STATE_MOVING);
+                        mPlayer.setPlayerHorizontalDirection(Player.DIRECTION_LEFT);
+                        mPlayer.setState(Player.STATE_MOVING);
                     } else if (mCtrlRightArrow.getImpact(x, y)) {
-                        Log.d("Tile Game Example", "Pressed right arrow");
-                        mPlayer.setPlayerHorizontalDirection(PlayerUnit.DIRECTION_RIGHT);
-                        mPlayer.setState(PlayerUnit.STATE_MOVING);
+                        mPlayer.setPlayerHorizontalDirection(Player.DIRECTION_RIGHT);
+                        mPlayer.setState(Player.STATE_MOVING);
                     }
-                }
 
+                }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                mPlayer.setState(PlayerUnit.STATE_STOP);
+                mPlayer.setState(Player.STATE_STOP);
                 mPlayer.setPlayerHorizontalDirection(0);
                 mPlayer.setPlayerVerticalDirection(0);
                 break;
@@ -603,23 +597,27 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         return true;
     }
 
-    private int getPixelValueForDensity(int pixels) {
-        return (int) (pixels * mScreenDensity);
-    }
-
-    //获取资源ID对应的图像并加入集合
-    private Bitmap setAndGetGameTileBitmap(int resourceId) {
-        if (!mGameTileBitmaps.containsKey(resourceId)) {
-            BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inJustDecodeBounds = true;
-            Bitmap bitmap = BitmapFactory.decodeResource(mGameContext.getResources(), resourceId);
-
-            if (bitmap != null) {
-                mGameTileBitmaps.put(resourceId, bitmap);
+    //处理冲突
+    private void handleTileCollision(GameTile gameTile) {
+        if (gameTile != null) {
+            switch (gameTile.getType()) {
+                case GameTile.TYPE_OBSTACLE:
+                    Log.i(TAG, "handleTileCollision: 外岩");
+                    break;
+                case GameTile.TYPE_ROCK:
+                    Log.i(TAG, "handleTileCollision: 普通岩石");
+                    break;
+                case GameTile.TYPE_CRATES:
+                    Log.i(TAG, "handleTileCollision: 木箱子");
+                    break;
+                default:
+                    Log.i(TAG, "handleTileCollision: 其他冲突");
             }
         }
+    }
 
-        return mGameTileBitmaps.get(resourceId);
+    private int getPixelValueForDensity(int pixels) {
+        return (int) (pixels * mScreenDensity);
     }
 }
 

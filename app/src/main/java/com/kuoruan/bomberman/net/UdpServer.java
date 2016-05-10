@@ -2,38 +2,36 @@ package com.kuoruan.bomberman.net;
 
 import android.content.Context;
 
-import com.kuoruan.bomberman.entity.PlayerUnit;
+import com.kuoruan.bomberman.util.PlayerManager;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
 
 
 /**
  * Created by Window10 on 2016/5/3.
  */
-public class UdpServerThread extends Thread {
+public class UdpServer extends Thread {
     public static final int PORT = 8300;
-    private Context mContext;
-    private boolean running;
+    private Context mGameContext;
+    private boolean mRunning = false;
 
-    public UdpServerThread(Context context) {
-        mContext = context;
+    public UdpServer(Context context) {
+        mGameContext = context;
     }
 
     @Override
     public void run() {
-        running = true;
+        mRunning = true;
         byte[] buffer = new byte[65507];
         DatagramSocket server = null;
         try {
             server = new DatagramSocket(PORT);
 
-
-            while (running) {
+            while (mRunning) {
                 try {
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     server.receive(packet);
@@ -41,9 +39,9 @@ public class UdpServerThread extends Thread {
                     System.out.println("server:" + packet.getAddress());
                     System.out.println("receive:" + s);
                     JSONObject jsonObject = new JSONObject(s.trim());
-                    switch (jsonObject.getInt("code")) {
+                    switch (jsonObject.getInt(NetProtocol.CODE)) {
                         case NetProtocol.ADD_PLAYER:
-                            addNetPlayer(jsonObject);
+                            addPlayer(jsonObject);
                             break;
                         case NetProtocol.PLAYER_MOVE:
                             playerMove(jsonObject);
@@ -62,41 +60,23 @@ public class UdpServerThread extends Thread {
     private void playerMove(JSONObject jsonObject) {
         long id = 0;
         try {
-            id = jsonObject.getLong("id");
-            int x = jsonObject.getInt("pointX");
-            int y = jsonObject.getInt("pointY");
-            if (id == NetPlayerManager.getMyPlayer().getId()) {
-                return;
-            }
-            for (NetPlayer netPlayer : NetPlayerManager.getNetPlayerList()) {
-                if (netPlayer.getId() == id) {
-                    netPlayer.getPlayerUnit().setX(x);
-                    netPlayer.getPlayerUnit().setY(y);
-                }
-            }
+            id = jsonObject.getLong(NetProtocol.ID);
+            int x = jsonObject.getInt(NetProtocol.POINTX);
+            int y = jsonObject.getInt(NetProtocol.POINTY);
+            PlayerManager.handlePlayerMove(id, x, y);
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
     }
 
+    private void addPlayer(JSONObject jsonObject) {
 
-    private void addNetPlayer(JSONObject jsonObject) {
-
-        long id = 0;
         try {
-            id = jsonObject.getLong("id");
-            int x = jsonObject.getInt("pointX");
-            int y = jsonObject.getInt("pointY");
-            if (NetPlayerManager.isHaveNetPlayer(id)) {
-                for (NetPlayer netPlayer : NetPlayerManager.getNetPlayerList()) {
-                    if (netPlayer.getId() == id) {
-                        return;
-                    }
-                }
-            }
-            NetPlayerManager.addNetPlayer(mContext, id, x, y);
-            UdpClient.noticeAddPlayer(NetPlayerManager.getMyPlayer());
+            long id = jsonObject.getLong(NetProtocol.ID);
+            int x = jsonObject.getInt(NetProtocol.POINTX);
+            int y = jsonObject.getInt(NetProtocol.POINTY);
+            PlayerManager.handlePlayerAdd(mGameContext, id, x, y);
         } catch (JSONException e) {
             e.printStackTrace();
         }

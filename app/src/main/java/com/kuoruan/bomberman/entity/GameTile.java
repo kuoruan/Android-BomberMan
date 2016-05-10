@@ -16,13 +16,18 @@ public class GameTile extends GameImage {
     public static final int TYPE_ROCK = 2;
     //箱子
     public static final int TYPE_CRATES = 3;
+    //炸弹
+    public static final int TYPE_BOMB = 4;
 
     private int mType = TYPE_EMPTY;
     private boolean mVisible = true;
     private Rect mCollisionRect = null;
 
-    public GameTile(Context context, Point point) {
-        super(context);
+    public GameTile(){
+
+    }
+
+    public GameTile(Point point) {
         setPoint(point);
     }
 
