@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">炸弹人</string>
+    <string name="create_game">创建游戏</string>
+    <string name="join_game">Join Game</string>
+    <string name="exit_game">Exit Game</string>
+    <string name="about_game">About Game</string>
+    <string name="scan_hint">Search Players</string>
+    <string name="scan">LAN Scan</string>
+    <string name="connection">Connection</string>
+    <string name="game_player">Game Player</string>
+    <string name="scan_loading">Scanning… Please wait.</string>
+    <string name="fight_request">Ask for fight with you.</string>
+    <string name="agree">Agree</string>
+</resources>

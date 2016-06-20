@@ -1,11 +1,12 @@
 package com.kuoruan.bomberman.entity;
 
-import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Point;
 
 /**
  * 游戏控制按钮
  */
-public class GameUi extends GameImage {
+public class GameUi extends BaseImage {
 
     //按钮状态
     public static final int STATE_NORMAL = 1;
@@ -14,13 +15,9 @@ public class GameUi extends GameImage {
     public static final int STATE_READY = 4;
 
     private int mState = STATE_NORMAL;
-    private boolean mVisible = true;
 
-    private Context mContext = null;
-
-    public GameUi(Context context, int drawable) {
-        super(context, drawable);
-        this.mContext = context;
+    public GameUi(Bitmap bitmap){
+        super(bitmap);
     }
 
     public int getState() {
@@ -35,22 +32,14 @@ public class GameUi extends GameImage {
         this.mState = STATE_READY;
     }
 
-    public boolean isVisible() {
-        return mVisible;
-    }
-
-    public void setmVisible(boolean visible) {
-        this.mVisible = visible;
-    }
-
     public boolean isStateNormal() {
         return (this.mState == STATE_NORMAL);
     }
 
     //判断点是否在当前对象中
     public boolean getImpact(int x, int y) {
-        if ((x >= mX) && (x <= (mX + this.getWidth()))) {
-            if ((y >= mY) && (y <= (mY + this.getHeight()))) {
+        if ((x >= mPoint.x) && (x <= (mPoint.x + mWidth))) {
+            if ((y >= mPoint.y) && (y <= (mPoint.y + mWidth))) {
                 return true;
             }
         }

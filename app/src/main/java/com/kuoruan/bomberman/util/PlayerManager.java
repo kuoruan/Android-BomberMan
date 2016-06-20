@@ -3,71 +3,95 @@ package com.kuoruan.bomberman.util;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
-import android.graphics.Rect;
+import android.os.Handler;
+import android.os.Message;
 
-import com.kuoruan.bomberman.data.GameData;
-import com.kuoruan.bomberman.entity.Animation;
+import com.kuoruan.bomberman.dao.GameDataDao;
 import com.kuoruan.bomberman.entity.Player;
-import com.kuoruan.bomberman.net.UdpClient;
+import com.kuoruan.bomberman.entity.data.GameData;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 /**
  * Created by Window10 on 2016/5/3.
  */
 public class PlayerManager {
+    private static final String TAG = "PlayerManager";
+    public static int mId = 1;
+    private GameDataDao mGameDataDao;
 
-    private static Animation mDynamicPlayer = null;
-    private static Map<Long, Animation> mDynamicPlayerMap = new HashMap<>();
+    private Map<Integer, Player> mPlayers = new HashMap<>();
+    private Player mMyPlayer = null;
+    private Map<Integer, GameData> mPlayerData = null;
+    private Map<Integer, Map<Integer, List<Bitmap>>> mPlayerTemplates = new HashMap<>();
     private static final Point[] positions = {new Point(1, 1), new Point(15, 11), new Point(1, 11), new Point(15, 1)};
-    private static Map<Integer, Map<Integer, List<Bitmap>>> mPlayerTemplates = new HashMap<>();
-    private static List<List<Integer>> mPlayerData = null;
+
+    private Context mContext;
+    private Handler mHandler;
+
+    public PlayerManager(Context context, Handler handler, int id) {
+        mContext = context;
+        mHandler = handler;
+        mId = id;
+        mGameDataDao = GameDataDao.getInstance(context);
+        mPlayerData = mGameDataDao.getPlayerData();
+        prepareMyPlayer();
+    }
+
+    /**
+     * 初始化玩家
+     *
+     * @return
+     */
+    public void prepareMyPlayer() {
+        Point mapPoint = positions[mId];
+        addPlayer(mId, mapPoint);
+        mMyPlayer = mPlayers.get(mId);
+        noticeMyPlayer();
+    }
 
     /**
      * 添加一个新的玩家
      */
-    public static Animation addPlayer(Context context, long id, int x, int y) {
-        int templateId = getPlayerCount();
-        Bitmap bitmap = getFirstBitmap(context, templateId);
-        Player player = new Player(bitmap, templateId);
-        player.setX(x);
-        player.setY(y);
+    public void addPlayer(int id, Point mapPoint) {
+        Bitmap bitmap = getFirstBitmap(id);
+        mapPoint.x *= bitmap.getWidth();
+        mapPoint.y = bitmap.getHeight();
+        Player player = new Player(bitmap, mPlayerTemplates.get(id), mapPoint);
         player.setId(id);
-        Animation dynamicPlayer = new Animation(player);
-        mDynamicPlayerMap.put(id, dynamicPlayer);
-        return dynamicPlayer;
+        mPlayers.put(id, player);
     }
 
-    public static Bitmap getFirstBitmap(Context context, int id) {
-        Map<Integer, List<Bitmap>> playerTemplate = setAndGetPlayerTemplates(context, id);
+    private Bitmap getFirstBitmap(int id) {
+        Map<Integer, List<Bitmap>> playerTemplate = setAndGetPlayerTemplates(id);
         return playerTemplate.get(Player.DIRECTION_DOWN).get(0);
     }
 
     /**
      * 准备玩家图片模板
      *
-     * @param context
      * @param id
      */
-    public static Map<Integer, List<Bitmap>> setAndGetPlayerTemplates(Context context, int id) {
+    private Map<Integer, List<Bitmap>> setAndGetPlayerTemplates(int id) {
         if (!mPlayerTemplates.containsKey(id)) {
-            List<Integer> data = mPlayerData.get(id);
+            GameData data = mPlayerData.get(id);
 
-            int drawable = data.get(GameData.FIELD_ID_DRAWABLE);
-            Bitmap bitmap = BitmapManager.setAndGetBitmap(context, drawable);
-            int width = bitmap.getWidth() / 3;
-            int height = bitmap.getHeight() / 7;
+            Bitmap baseBitmap = BitmapManager.setAndGetBitmap(mContext, data.getDrawable());
+
+            int width = baseBitmap.getWidth() / 3;
+            int height = baseBitmap.getHeight() / 7;
 
             Map<Integer, List<Bitmap>> map = new HashMap<>();
             for (int y = 0; y < 4; y++) {
                 List<Bitmap> list = new ArrayList<>();
                 for (int x = 0; x < 3; x++) {
-                    Bitmap newBitmap = Bitmap.createBitmap(bitmap, x * width, y * height, width, height);
+                    Bitmap newBitmap = Bitmap.createBitmap(baseBitmap, x * width, y * height, width, height);
                     list.add(newBitmap);
                 }
 
@@ -77,113 +101,134 @@ public class PlayerManager {
             List<Bitmap> dieBitmaps = new ArrayList<>();
             for (int y = 4; y < 7; y++) {
                 for (int x = 0; x < 3; x++) {
-                    Bitmap newBitmap = Bitmap.createBitmap(bitmap, x * width, y * height, width, height);
+                    Bitmap newBitmap = Bitmap.createBitmap(baseBitmap, x * width, y * height, width, height);
                     dieBitmaps.add(newBitmap);
                 }
             }
 
             map.put(Player.PLAYER_DIE, dieBitmaps);
-
             mPlayerTemplates.put(id, map);
         }
 
         return mPlayerTemplates.get(id);
     }
 
-    /**
-     * 初始化玩家
-     *
-     * @param context
-     * @return
-     */
-    public static Animation createDynamicPlayer(Context context) {
-        Player player = new Player(getFirstBitmap(context, 0), 0);
-        Random random = new Random();
-        int i = random.nextInt(4);
-        long id = System.currentTimeMillis();
-        Point point = positions[i];
-        player.setX(point.x * player.getWidth());
-        player.setY(point.y * player.getHeight());
-        player.setId(id);
-        Animation dynamicPlayer = new Animation(player, true);
-        mDynamicPlayerMap.put(id, dynamicPlayer);
-        mDynamicPlayer = dynamicPlayer;
-        return dynamicPlayer;
+    public Map<Integer, Player> getPlayers() {
+        return mPlayers;
     }
 
-    public static Map<Long, Animation> getPlayerMap() {
-        return mDynamicPlayerMap;
+    public int getPlayerCount() {
+        return mPlayers.size();
     }
 
-    public static int getPlayerCount() {
-        return mDynamicPlayerMap.size();
+    public void handlePlayerMove(JSONObject jsonObject) {
+        int pid = 0;
+        int direction = 0;
+        int x = 0;
+        int y = 0;
+        try {
+            pid = jsonObject.getInt(ConnectConstants.PLAYER_ID);
+            direction = jsonObject.getInt(ConnectConstants.DIRECTION);
+            x = jsonObject.getInt(ConnectConstants.POINT_X);
+            y = jsonObject.getInt(ConnectConstants.POINT_Y);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        Player netPlayer = mPlayers.get(pid);
+        netPlayer.setX(x);
+        netPlayer.setY(y);
+        netPlayer.setDirection(direction);
+        netPlayer.setState(Player.STATE_MOVING);
     }
 
-    public static void handlePlayerMove(long playerId, int newX, int newY) {
-        Player myPlayer = getMyPlayer();
-        if (playerId == myPlayer.getId()) {
+    public Player getMyPlayer() {
+        return mMyPlayer;
+    }
+
+    public void handlePlayerAdd(JSONObject jsonObject) {
+        int pid = 0;
+        int x = 0;
+        int y = 0;
+        try {
+            pid = jsonObject.getInt(ConnectConstants.PLAYER_ID);
+            x = jsonObject.getInt(ConnectConstants.POINT_X);
+            y = jsonObject.getInt(ConnectConstants.POINT_Y);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (mPlayers.containsKey(pid)) {
             return;
         }
 
-        Player netPlayer = getPlayer(playerId);
-        netPlayer.setX(newX);
-        netPlayer.setY(newY);
+        addPlayer(pid, new Point(x, y));
     }
 
-    public static Player getPlayer(long id) {
-        return (Player) mDynamicPlayerMap.get(id).getBaseObj();
-    }
-
-    public static Player getMyPlayer() {
-        return (Player) mDynamicPlayer.getBaseObj();
-    }
-
-    public static Animation getDynamicPlayer() {
-        return mDynamicPlayer;
-    }
-
-    public static void handlePlayerAdd(Context context, long playerId, int pointX, int pointY) {
-        if (mDynamicPlayerMap.containsKey(playerId)) {
+    public void handlePlayerStop(JSONObject jsonObject) {
+        int pid = 0;
+        try {
+            pid = jsonObject.getInt(ConnectConstants.PLAYER_ID);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (pid == mId) {
             return;
         }
-        addPlayer(context, playerId, pointX, pointY);
-        //通知新加入用户我已存在
-        //UdpClient.noticeAddPlayer(getMyPlayer());
+        Player netPlayer = mPlayers.get(pid);
+        netPlayer.setState(Player.STATE_STOP);
+        netPlayer.setDirection(0);
     }
 
-    public static List<Bitmap> getMyPlayerBitmaps(int direction) {
-        return mPlayerTemplates.get(getMyPlayer().getTemplateId()).get(direction);
-    }
+    public void noticeMyMove() {
+        Message msg = Message.obtain();
+        msg.what = GameConstants.PLAYER_MOVE;
 
-    public static List<Bitmap> getPlayerBitmaps(int templateId, int direction) {
-        return mPlayerTemplates.get(templateId).get(direction);
-    }
-
-    public static void setPlayerData(List<List<Integer>> playerData) {
-        PlayerManager.mPlayerData = playerData;
-    }
-
-    public static void checkPlayer(int x, int y) {
-        Iterator<Map.Entry<Long, Animation>> it = mDynamicPlayerMap.entrySet().iterator();
-
-        while (it.hasNext()) {
-            Animation dynamicPlayer = it.next().getValue();
-            Player player = (Player) dynamicPlayer.getBaseObj();
-            int offsetX = Math.abs(player.getX() - x);
-            int offsetY = Math.abs(player.getY() - y);
-            double d = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-
-            if (d < player.getWidth()) {
-                if (player.isAlive()) {
-                    player.setState(Player.STATE_DIE);
-                    player.setPlayerVerticalDirection(0);
-                    player.setPlayerHorizontalDirection(0);
-                    dynamicPlayer.setFrameBitmap(getPlayerBitmaps(player.getTemplateId(), Player.PLAYER_DIE));
-                    dynamicPlayer.setLoop(false);
-                }
-            }
-
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put(ConnectConstants.TYPE, GameConstants.PLAYER_MOVE);
+            jsonObject.put(ConnectConstants.PLAYER_ID, mId);
+            jsonObject.put(ConnectConstants.DIRECTION, mMyPlayer.getDirection());
+            jsonObject.put(ConnectConstants.POINT_X, mMyPlayer.getX());
+            jsonObject.put(ConnectConstants.POINT_Y, mMyPlayer.getY());
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
 
+        msg.obj = jsonObject;
+        mHandler.sendMessage(msg);
+    }
+
+
+    private void noticeMyPlayer() {
+        Message msg = Message.obtain();
+        msg.what = GameConstants.PLAYER_ADD;
+
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put(ConnectConstants.TYPE, GameConstants.PLAYER_ADD);
+            jsonObject.put(ConnectConstants.PLAYER_ID, mId);
+            jsonObject.put(ConnectConstants.POINT_X, mMyPlayer.getX());
+            jsonObject.put(ConnectConstants.POINT_Y, mMyPlayer.getY());
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        msg.obj = jsonObject;
+        mHandler.sendMessage(msg);
+    }
+
+    public void noticeMyStop() {
+        Message msg = Message.obtain();
+        msg.what = GameConstants.PLAYER_STOP;
+
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put(ConnectConstants.TYPE, GameConstants.PLAYER_STOP);
+            jsonObject.put(ConnectConstants.PLAYER_ID, mId);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        msg.obj = jsonObject;
+        mHandler.sendMessage(msg);
     }
 }

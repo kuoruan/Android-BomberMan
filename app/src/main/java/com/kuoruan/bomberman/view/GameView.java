@@ -1,35 +1,29 @@
 package com.kuoruan.bomberman.view;
 
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import com.kuoruan.bomberman.GameActivity;
 import com.kuoruan.bomberman.R;
-import com.kuoruan.bomberman.data.GameData;
-import com.kuoruan.bomberman.data.GameLevelTileData;
-import com.kuoruan.bomberman.entity.Animation;
-import com.kuoruan.bomberman.entity.Bomb;
-import com.kuoruan.bomberman.entity.Conflict;
-import com.kuoruan.bomberman.entity.Fire;
+import com.kuoruan.bomberman.entity.Collision;
 import com.kuoruan.bomberman.entity.GameTile;
 import com.kuoruan.bomberman.entity.GameUi;
 import com.kuoruan.bomberman.entity.Player;
-import com.kuoruan.bomberman.entity.Scene;
-import com.kuoruan.bomberman.util.BombManager;
+import com.kuoruan.bomberman.util.BitmapManager;
 import com.kuoruan.bomberman.util.SceneManager;
 import com.kuoruan.bomberman.util.PlayerManager;
-import com.kuoruan.bomberman.net.UdpClient;
 
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -46,9 +40,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     //游戏状态
     public static final int STATE_RUNNING = 1;
     public static final int STATE_PAUSED = 2;
-    //多人游戏
-    public static final int MULTI_PLAYER_STAGE = 0;
-    private static final int START_STAGE = 1;
 
     //屏幕大小
     private int mScreenXMax = 0;
@@ -56,60 +47,52 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private int mScreenXCenter = 0;
     private int mScreenYCenter = 0;
 
-    //场景大小
-    private static int mSceneXMax = 0;
-    private static int mSceneYMax = 0;
-
     /**
      * 屏幕偏移
      */
     private int mScreenXOffset = 0;
     private int mScreenYOffset = 0;
 
-    private int mPlayerStartTileX = 0;
-    private int mPlayerStartTileY = 0;
-
     //主线程运行
     private boolean mGameRun = true;
     //游戏状态
     private int mGameState;
-    //游戏关卡
-    private int mPlayerStage = START_STAGE;
+
+    private Display mDisplay;
 
     //屏幕像素密度
     private float mScreenDensity = 0.0f;
-    private SurfaceHolder mGameSurfaceHolder = null;
+    private SurfaceHolder mGameSurfaceHolder;
     //正在处理地图
     private boolean updatingGameTiles = false;
 
-    private GameData mGameData = null;
-    private GameLevelTileData mGameLevelTileData = null;
-
     //当前玩家
-    Animation mDynamicPlayer = null;
-    Player mPlayer = null;
+    private Player mPlayer;
 
     //文字画笔
-    private Paint mUiTextPaint = null;
-    private Context mGameContext = null;
-    private Activity mGameActivity = null;
+    private Paint mUiTextPaint;
+    private Context mGameContext;
 
     //控制按钮
-    private GameUi mCtrlUpArrow = null;
-    private GameUi mCtrlDownArrow = null;
-    private GameUi mCtrlLeftArrow = null;
-    private GameUi mCtrlRightArrow = null;
-    private GameUi mSetBombButton = null;
+    private GameUi mCtrlUpArrow;
+    private GameUi mCtrlDownArrow;
+    private GameUi mCtrlLeftArrow;
+    private GameUi mCtrlRightArrow;
+    private GameUi mSetBombButton;
     //背景图片
-    private Bitmap mBackgroundImage = null;
+    private Bitmap mBackgroundImage;
 
     //地图对象数组
-    private List<GameTile> mGameTiles = SceneManager.getGameTiles();
-    private Map<Long, Animation> mPlayers = PlayerManager.getPlayerMap();
-    private List<Animation> mBombs = BombManager.getBombList();
-    private List<Animation> mFires = BombManager.getFireList();
+    private GameTile[][] mGameTiles;
+    private PlayerManager mPlayerManager;
+    private SceneManager mSceneManager;
+    private Map<Integer, Player> mPlayers;
     //冲突对象
-    Conflict mConflict = new Conflict();
+    private Collision mCollision = new Collision();
+    //冲突砖块
+    private GameTile mCollisionTile = null;
+    //玩家周围的砖块
+    private List<GameTile> mSurroundTiles = new ArrayList<>();
     //游戏主线程
     private GameThread mThread;
 
@@ -117,32 +100,25 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         super(context);
     }
 
-    public GameView(Context context, GameActivity activity, int stage, float screenDensity) {
+    public GameView(Context context, PlayerManager playerManager, SceneManager sceneManager, Display display) {
         super(context);
         mGameContext = context;
-        mGameActivity = activity;
+        mDisplay = display;
 
-        mScreenDensity = screenDensity;
-        mPlayerStage = stage;
-        mGameData = new GameData(context);
-        mGameLevelTileData = new GameLevelTileData(context);
+        mPlayerManager = playerManager;
+        mPlayer = mPlayerManager.getMyPlayer();
+        mPlayers = mPlayerManager.getPlayers();
 
-        SceneManager.setGameTileData(mGameData.getGameTileData());
-        PlayerManager.setPlayerData(mGameData.getPlayerData());
-        BombManager.setBombData(mGameData.getBombData());
-
-        mDynamicPlayer = PlayerManager.createDynamicPlayer(context);
-        mPlayer = PlayerManager.getMyPlayer();
-        UdpClient.noticeAddPlayer(mPlayer);
+        mSceneManager = sceneManager;
 
         SurfaceHolder holder = getHolder();
         holder.addCallback(this);
-
-        // create mThread only; it's started in surfaceCreated()
+        //游戏主线程
         mThread = new GameThread(holder, context);
 
         setFocusable(true);
 
+        //初始化关卡数据
         startLevel();
         mThread.doStart();
     }
@@ -181,17 +157,27 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     public class GameThread extends Thread {
+
+        //画布
+        private Canvas canvas = null;
+
         public GameThread(SurfaceHolder surfaceHolder, Context context) {
             mGameSurfaceHolder = surfaceHolder;
             mGameContext = context;
             mBackgroundImage = BitmapFactory.decodeResource(context.getResources(), R.drawable.game_bg);
-            //获取屏幕宽度
+
+            //获取屏幕相关数据
             Point point = new Point();
-            mGameActivity.getWindowManager().getDefaultDisplay().getSize(point);
+            mDisplay.getSize(point);
             mScreenXMax = point.x;
             mScreenYMax = point.y;
+
             mScreenXCenter = (mScreenXMax / 2);
             mScreenYCenter = (mScreenYMax / 2);
+            //获取屏幕像素密度
+            DisplayMetrics outMetrics = new DisplayMetrics();
+            mDisplay.getMetrics(outMetrics);
+            mScreenDensity = outMetrics.density;
 
             setGameStartState();
         }
@@ -201,14 +187,13 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             while (mGameRun) {
                 //取得更新游戏之前的时间
                 long startTime = System.currentTimeMillis();
-                Canvas canvas = null;
                 try {
                     synchronized (mGameSurfaceHolder) {
                         canvas = mGameSurfaceHolder.lockCanvas();
                         if (mGameState == STATE_RUNNING) {
                             updatePlayer();
                         }
-                        doDraw(canvas);
+                        doDraw();
                     }
                 } finally {
                     if (canvas != null) {
@@ -231,7 +216,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         }
 
         public void setSurfaceSize(int width, int height) {
-            // synchronized to make sure these all change atomically
             synchronized (mGameSurfaceHolder) {
                 mBackgroundImage = Bitmap.createScaledBitmap(mBackgroundImage, width, height, true);
             }
@@ -245,143 +229,96 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         //更新自身游戏角色位置
         private void updatePlayer() {
             if (mPlayer != null && mPlayer.isMoving()) {
-                int differenceX;
-                int differenceY;
                 int newX = mPlayer.getX();
                 int newY = mPlayer.getY();
-                int playerHorizontalDirection = mPlayer.getPlayerHorizontalDirection();
-                int playerVerticalDirection = mPlayer.getPlayerVerticalDirection();
-                int playerSpeed = mPlayer.getSpeed();
+                int direction = mPlayer.getDirection();
+                int pixelValue = getPixelValueForDensity(mPlayer.getSpeed());
 
-                if (playerHorizontalDirection != 0) {
-                    mConflict.setDirection(playerHorizontalDirection);
-                    differenceX = (playerHorizontalDirection == Player.DIRECTION_RIGHT) ? getPixelValueForDensity
-                            (playerSpeed) : getPixelValueForDensity(-playerSpeed);
-                    newX = (mPlayer.getX() + differenceX);
-                    mDynamicPlayer.setFrameBitmap(PlayerManager.getMyPlayerBitmaps(playerHorizontalDirection));
+                switch (direction) {
+                    case Player.DIRECTION_UP:
+                        newY -= pixelValue;
+                        break;
+                    case Player.DIRECTION_DOWN:
+                        newY += pixelValue;
+                        break;
+                    case Player.DIRECTION_LEFT:
+                        newX -= pixelValue;
+                        break;
+                    case Player.DIRECTION_RIGHT:
+                        newX += pixelValue;
+                        break;
                 }
 
-                if (playerVerticalDirection != 0) {
-                    mConflict.setDirection(playerVerticalDirection);
-                    differenceY = (playerVerticalDirection == Player.DIRECTION_DOWN) ?
-                            getPixelValueForDensity(playerSpeed) : getPixelValueForDensity(-playerSpeed);
-                    newY = (mPlayer.getY() + differenceY);
-                    mDynamicPlayer.setFrameBitmap(PlayerManager.getMyPlayerBitmaps(playerVerticalDirection));
-                }
-
-                Log.i(TAG, "updatePlayer: X = " + newX + " Y = " + newY);
+                mCollision.setDirection(direction);
                 //处理冲突
-                solveConflict(newX, newY, mPlayer.getWidth(), mPlayer.getHeight());
-                if (mConflict.isSolvable()) {
-                    mPlayer.setX(mConflict.getNewX());
-                    mPlayer.setY(mConflict.getNewY());
-                    UdpClient.noticePlayerMove(mPlayer);
+                solveCollision(newX, newY);
+                if (mCollision.isSolvable()) {
+                    mPlayer.setX(mCollision.getNewX());
+                    mPlayer.setY(mCollision.getNewY());
+                    mPlayerManager.noticeMyMove();
                 } else {
-                    handleTileCollision(mConflict.getCollisionTile());
+                    handleTileCollision(mCollision.getCollisionTile());
                 }
-                mDynamicPlayer.doAnimation();
+
                 setViewOffset();
             }
         }
 
         //绘制游戏元素
-        private void doDraw(Canvas canvas) {
+        private void doDraw() {
             if (canvas != null) {
                 canvas.drawBitmap(mBackgroundImage, 0, 0, null);
 
                 if (!updatingGameTiles) {
-                    drawGameTiles(canvas);
+                    drawGameTiles();
                 }
 
-                drawBombs(canvas);
-                drawFires(canvas);
-                drawPlayers(canvas);
-                drawControls(canvas);
+                drawPlayers();
+                drawControls();
 
                 //canvas.drawText(mLastStatusMessage, 30, 50, mUiTextPaint);
             }
         }
 
         //绘制玩家
-        private void drawPlayers(Canvas canvas) {
+        private void drawPlayers() {
             int offsetX;
             int offsetY;
-            Player player;
-            Iterator<Map.Entry<Long, Animation>> entry = mPlayers.entrySet().iterator();
 
-            while (entry.hasNext()) {
-                Animation dynamicPlayer = entry.next().getValue();
-                player = (Player) dynamicPlayer.getBaseObj();
+            Collection<Player> players = mPlayers.values();
+            for (Player player : players) {
                 offsetX = player.getX() - mScreenXOffset;
                 offsetY = player.getY() - mScreenYOffset;
-                if (!player.isAlive()) {
-                    mDynamicPlayer.doAnimation();
+                //Log.i(TAG, "drawPlayers: player" + player.getId() + " is moving " + player.isMoving());
+                if (player.isMoving()) {
+                    player.doAnimation();
                 }
                 canvas.drawBitmap(player.getBitmap(), offsetX, offsetY, null);
             }
         }
 
-        //绘制炸弹
-        private void drawBombs(Canvas canvas) {
-            int offsetX;
-            int offsetY;
-
-            for (Animation dynamicBomb : mBombs) {
-                Bomb bomb = (Bomb) dynamicBomb.getBaseObj();
-                if (bomb.isExplosion()) {
-                    if (bomb.getPid() == mPlayer.getId()) {
-                        BombManager.decreaseBombCount();
-                    }
-                    mBombs.remove(dynamicBomb);
-                    continue;
-                }
-
-                offsetX = bomb.getX() - mScreenXOffset;
-                offsetY = bomb.getY() - mScreenYOffset;
-                dynamicBomb.doAnimation();
-                canvas.drawBitmap(bomb.getBitmap(), offsetX, offsetY, null);
-            }
-        }
-
-        //绘制炸弹
-        private void drawFires(Canvas canvas) {
-            int offsetX;
-            int offsetY;
-
-            for (Animation dynamicFire : mFires) {
-                Fire fire = (Fire) dynamicFire.getBaseObj();
-
-                if (dynamicFire.isEnd()) {
-                    mFires.remove(dynamicFire);
-                    continue;
-                }
-
-                offsetX = fire.getX() - mScreenXOffset;
-                offsetY = fire.getY() - mScreenYOffset;
-                dynamicFire.doAnimation();
-                canvas.drawBitmap(fire.getBitmap(), offsetX, offsetY, null);
-            }
-        }
-
         //绘制游戏地图
-        private void drawGameTiles(Canvas canvas) {
+        private void drawGameTiles() {
             int offsetX;
             int offsetY;
+            GameTile gameTile;
 
-            for (GameTile gameTile : mGameTiles) {
-                if (gameTile != null) {
-
-                    offsetX = gameTile.getX() - mScreenXOffset;
-                    offsetY = gameTile.getY() - mScreenYOffset;
-                    if (gameTile.isVisible()) {
-                        canvas.drawBitmap(gameTile.getBitmap(), offsetX, offsetY, null);
+            for (int i = 0; i < mGameTiles.length; i++) {
+                for (int j = 0; j < mGameTiles[i].length; j++) {
+                    gameTile = mGameTiles[i][j];
+                    if (gameTile != null) {
+                        offsetX = gameTile.getX() - mScreenXOffset;
+                        offsetY = gameTile.getY() - mScreenYOffset;
+                        if (gameTile.isVisible()) {
+                            canvas.drawBitmap(gameTile.getBitmap(), offsetX, offsetY, null);
+                        }
                     }
                 }
             }
         }
 
         //绘制控制按钮
-        private void drawControls(Canvas canvas) {
+        private void drawControls() {
             canvas.drawBitmap(mCtrlUpArrow.getBitmap(), mCtrlUpArrow.getX(), mCtrlUpArrow.getY(), null);
             canvas.drawBitmap(mCtrlDownArrow.getBitmap(), mCtrlDownArrow.getX(), mCtrlDownArrow.getY(), null);
             canvas.drawBitmap(mCtrlLeftArrow.getBitmap(), mCtrlLeftArrow.getX(), mCtrlLeftArrow.getY(), null);
@@ -389,27 +326,42 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             canvas.drawBitmap(mSetBombButton.getBitmap(), mSetBombButton.getX(), mSetBombButton.getY(), null);
         }
 
-        //获取冲撞对象
-        private void solveConflict(int x, int y, int width, int height) {
-            mConflict.setSolvable(true);
-            mConflict.setNewX(x);
-            mConflict.setNewY(y);
-            //遍历地图对象
-            for (GameTile gameTile : mGameTiles) {
-                if ((gameTile != null) && gameTile.isCollisionTile()) {
-                    if ((gameTile.getX() == x) && (gameTile.getY() == y)) {
-                        continue;
-                    }
+        //获取冲撞对象，并尝试解决冲撞
+        private void solveCollision(int x, int y) {
+            mCollision.setSolvable(true);
+            mCollision.setNewX(x);
+            mCollision.setNewY(y);
 
-                    if (gameTile.getCollision(x, y, width, height)) {
-                        mConflict.setCollisionTile(gameTile);
-                        mConflict.solveConflict(x, y, width, height);
-                        Log.i(TAG, "mConflict:" + mConflict.toString());
-                    }
+            Point mapPoint = mPlayer.getStandardMapPoint();
+            mSurroundTiles.clear();
+
+            //首先获取周围8个方向的砖块
+            mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x - 1]); //左上
+            mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x]); //上
+            mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x + 1]); //右上
+            mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x - 1]); //左
+            mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x + 1]); //右
+            mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x - 1]); //左下
+            mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x]); //下
+            mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x + 1]); //右下
+
+            int width = mPlayer.getWidth();
+            int height = mPlayer.getHeight();
+
+            for (GameTile gameTile : mSurroundTiles) {
+                if (gameTile != null && gameTile.isCollision(x, y, width, height)) { //如果存在冲突
+                    mCollisionTile = gameTile;
+                    break;
                 }
             }
-            mConflict.setCollisionTile(null);
+            mCollision.setCollisionTile(mCollisionTile);
 
+            if (mCollisionTile != null) {
+                //处理冲突
+                mCollision.solveCollision(x, y);
+            }
+
+            mCollisionTile = null;
         }
 
         //设置游戏状态
@@ -448,7 +400,8 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         //处理控制按钮
         private void setControlsStart() {
             if (mCtrlDownArrow == null) {
-                mCtrlDownArrow = new GameUi(mGameContext, R.drawable.ctrl_down_arrow);
+
+                mCtrlDownArrow = new GameUi(BitmapManager.setAndGetBitmap(mGameContext, R.drawable.ctrl_down_arrow));
 
                 mCtrlDownArrow.setX((mCtrlDownArrow.getWidth() + getPixelValueForDensity(CONTROLS_PADDING)));
                 mCtrlDownArrow.setY(mScreenYMax - (mCtrlDownArrow.getHeight() + getPixelValueForDensity
@@ -456,27 +409,27 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             }
 
             if (mCtrlUpArrow == null) {
-                mCtrlUpArrow = new GameUi(mGameContext, R.drawable.ctrl_up_arrow);
+                mCtrlUpArrow = new GameUi(BitmapManager.setAndGetBitmap(mGameContext, R.drawable.ctrl_up_arrow));
 
                 mCtrlUpArrow.setX(mCtrlDownArrow.getX());
                 mCtrlUpArrow.setY(mCtrlDownArrow.getY() - (mCtrlUpArrow.getHeight() * 2));
             }
 
             if (mCtrlLeftArrow == null) {
-                mCtrlLeftArrow = new GameUi(mGameContext, R.drawable.ctrl_left_arrow);
+                mCtrlLeftArrow = new GameUi(BitmapManager.setAndGetBitmap(mGameContext, R.drawable.ctrl_left_arrow));
                 mCtrlLeftArrow.setX(mCtrlDownArrow.getX() - mCtrlLeftArrow.getWidth());
                 mCtrlLeftArrow.setY(mCtrlDownArrow.getY() - mCtrlLeftArrow.getHeight());
             }
 
             if (mCtrlRightArrow == null) {
-                mCtrlRightArrow = new GameUi(mGameContext, R.drawable.ctrl_right_arrow);
+                mCtrlRightArrow = new GameUi(BitmapManager.setAndGetBitmap(mGameContext, R.drawable.ctrl_right_arrow));
 
                 mCtrlRightArrow.setX(mCtrlLeftArrow.getX() + (mCtrlRightArrow.getWidth() * 2));
                 mCtrlRightArrow.setY(mCtrlLeftArrow.getY());
             }
 
             if (mSetBombButton == null) {
-                mSetBombButton = new GameUi(mGameContext, R.drawable.set_bomb);
+                mSetBombButton = new GameUi(BitmapManager.setAndGetBitmap(mGameContext, R.drawable.set_bomb));
 
                 mSetBombButton.setX(mScreenXMax - (mSetBombButton.getWidth() + getPixelValueForDensity
                         (CONTROLS_PADDING)));
@@ -502,21 +455,13 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
     private void parseGameLevelData() {
         updatingGameTiles = true;
 
-        List<String> gameLevelData = mGameLevelTileData.getGameLevelData(mPlayerStage);
-        String levelTileData = gameLevelData.get(GameLevelTileData.FIELD_ID_TILE_DATA);
+        mGameTiles = mSceneManager.parseGameTileData();
 
-        if (levelTileData == null) {
+        if (mGameTiles == null) {
             return;
         }
 
-        // Get player start position.
-        mPlayerStartTileX = Integer.parseInt(gameLevelData.get(GameLevelTileData.FIELD_ID_PLAYER_START_TILE_X));
-        mPlayerStartTileY = Integer.parseInt(gameLevelData.get(GameLevelTileData.FIELD_ID_PLAYER_START_TILE_Y));
-
         //处理地图数据
-        Scene scene = SceneManager.parseGameTileData(mGameContext, levelTileData);
-        mSceneXMax = scene.getSceneXMax();
-        mSceneYMax = scene.getSceneYMax();
         updatingGameTiles = false;
     }
 
@@ -524,7 +469,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
      * 计算屏幕偏移
      */
     private void setViewOffset() {
-        if (mSceneXMax == 0) {
+        if (SceneManager.sceneXMax == 0 || SceneManager.sceneYMax == 0) {
             return;
         }
 
@@ -534,16 +479,16 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         if (playerX >= mScreenXCenter) {
             mScreenXOffset = playerX - mScreenXCenter;
 
-            if (mScreenXOffset > (mSceneXMax - mScreenXMax)) {
-                mScreenXOffset = mSceneXMax - mScreenXMax;
+            if (mScreenXOffset > (SceneManager.sceneXMax - mScreenXMax)) {
+                mScreenXOffset = SceneManager.sceneXMax - mScreenXMax;
             }
         }
 
         if (playerY >= mScreenYCenter) {
             mScreenYOffset = playerY - mScreenYCenter;
 
-            if (mScreenYOffset > (mSceneYMax - mScreenYMax)) {
-                mScreenYOffset = mSceneYMax - mScreenYMax;
+            if (mScreenYOffset > (SceneManager.sceneYMax - mScreenYMax)) {
+                mScreenYOffset = SceneManager.sceneYMax - mScreenYMax;
             }
         }
 
@@ -569,28 +514,27 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
                 if (mGameState == STATE_RUNNING) {
                     if (mSetBombButton.getImpact(x, y)) {
-                        BombManager.setBomb(mGameContext);
+                        mSceneManager.setBomb(mPlayer.getStandardMapPoint());
                     } else if (mCtrlUpArrow.getImpact(x, y)) {
-                        mPlayer.setPlayerVerticalDirection(Player.DIRECTION_UP);
+                        mPlayer.setDirection(Player.DIRECTION_UP);
                         mPlayer.setState(Player.STATE_MOVING);
                     } else if (mCtrlDownArrow.getImpact(x, y)) {
-                        mPlayer.setPlayerVerticalDirection(Player.DIRECTION_DOWN);
+                        mPlayer.setDirection(Player.DIRECTION_DOWN);
                         mPlayer.setState(Player.STATE_MOVING);
                     } else if (mCtrlLeftArrow.getImpact(x, y)) {
-                        mPlayer.setPlayerHorizontalDirection(Player.DIRECTION_LEFT);
+                        mPlayer.setDirection(Player.DIRECTION_LEFT);
                         mPlayer.setState(Player.STATE_MOVING);
                     } else if (mCtrlRightArrow.getImpact(x, y)) {
-                        mPlayer.setPlayerHorizontalDirection(Player.DIRECTION_RIGHT);
+                        mPlayer.setDirection(Player.DIRECTION_RIGHT);
                         mPlayer.setState(Player.STATE_MOVING);
                     }
-
                 }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 mPlayer.setState(Player.STATE_STOP);
-                mPlayer.setPlayerHorizontalDirection(0);
-                mPlayer.setPlayerVerticalDirection(0);
+                mPlayer.setDirection(0);
+                mPlayerManager.noticeMyStop();
                 break;
         }
 

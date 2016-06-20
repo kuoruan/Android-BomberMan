@@ -3,14 +3,18 @@ package com.kuoruan.bomberman.util;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.os.Handler;
+import android.util.Log;
 
-import com.kuoruan.bomberman.data.GameData;
-import com.kuoruan.bomberman.data.GameLevelTileData;
-import com.kuoruan.bomberman.entity.Animation;
+import com.kuoruan.bomberman.dao.GameDataDao;
+import com.kuoruan.bomberman.dao.GameLevelDataDao;
+import com.kuoruan.bomberman.entity.Bomb;
 import com.kuoruan.bomberman.entity.GameTile;
-import com.kuoruan.bomberman.entity.Scene;
+import com.kuoruan.bomberman.entity.data.GameData;
+import com.kuoruan.bomberman.entity.data.GameLevelData;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,126 +23,156 @@ import java.util.Map;
  */
 public class SceneManager {
 
-    private static Map<Integer, List<Integer>> mGameTileData = null;
-    private static List<GameTile> mGameTiles = new ArrayList<>();
-    private static List<Animation> mDynamicTiles = new ArrayList<>();
-    private static Scene mScene = null;
+    private final String TAG = "SceneManager";
+
+    public static int sceneXMax = 0;
+    public static int sceneYMax = 0;
+
+    public static int tileWidth = 0;
+    public static int tileHeight = 0;
+
+    private int mTotalBombCount = GameConstants.DEFAULT_BOMB_COUNT;
+    private int mPlayerBombCount = 0;
+
+    private int mGameStage = 0;
+
+    private int mBombType = Bomb.TYPE_NORMAL;
+
+    private Map<Integer, GameData> mTileData = null;
+    private Map<Integer, GameData> mBombData = null;
+    private Map<Integer, GameData> mFireData = null;
+
+    private Map<Integer, List<Bitmap>> mBombTemplates = new HashMap<>();
+    private Map<Integer, List<Bitmap>> mFireTemplates = new HashMap<>();
+
+    private GameTile[][] mGameTiles = null;
+    private Context mContext;
+    private Handler mHandler;
+
+    private GameDataDao mGameDataDao;
+    private GameLevelDataDao mGameLevelDataDao;
+    private GameLevelData mGameLevelData;
+
+    public SceneManager(Context context, Handler handler, int stage) {
+        mContext = context;
+        mHandler = handler;
+        mGameStage = stage;
+        mGameDataDao = GameDataDao.getInstance(context);
+        this.mTileData = mGameDataDao.getGameTileData();
+        this.mBombData = mGameDataDao.getBombData();
+        mGameLevelDataDao = GameLevelDataDao.getInstance(context);
+    }
 
     /**
      * 处理地图数据
-     *
-     * @param context
-     * @param levelTileData
      */
-    public static Scene parseGameTileData(Context context, String levelTileData) {
-        // Clear any existing loaded game tiles.
-        mGameTiles.clear();
+    public GameTile[][] parseGameTileData() {
+        mGameLevelData = mGameLevelDataDao.getGameLevelData(mGameStage);
+        String levelTileData = mGameLevelData.getLevelTiles();
 
-        int mTileWidth = 0;
-        int mTileHeight = 0;
-        int mSceneXMax = 0;
-        int mSceneYMax = 0;
+        if (levelTileData == null) {
+            return null;
+        }
 
-        // Split level tile data by line.
-        String[] tileLines = levelTileData.split(GameLevelTileData.TILE_DATA_LINE_BREAK);
-
-        Bitmap bitmap = null;
-        Point tilePoint = new Point(0, 0);
+        Bitmap bitmap;
+        Point tilePoint = new Point();
         int tileX = 0;
         int tileY = 0;
 
-        // Loop through each line of the level tile data.
-        for (String tileLine : tileLines) {
-            tileX = 0;
+        String[] tileLines = levelTileData.split(GameLevelDataDao.TILE_DATA_LINE_BREAK);
+        int rows = tileLines.length;
+        int cols = 0;
 
-            // Split tile data line by tile delimiter, producing an array of tile IDs.
-            String[] tiles = tileLine.split(",");
+        for (int i = 0; i < rows; i++) {
+            String[] tiles = tileLines[i].split(",");
 
-            // Loop through the tile IDs, creating a new GameTile instance for each one.
-            for (String tile : tiles) {
-                // Get tile definition for the current tile ID.
-                List<Integer> tileData = mGameTileData.get(Integer.parseInt(tile));
+            //如果没有列数目
+            if (cols == 0 && mGameTiles == null) {
+                cols = tiles.length;
+                mGameTiles = new GameTile[rows][cols];
+            }
 
-                // Check for valid tile data.
-                if ((tileData != null) && (tileData.size() > 0) && (tileData.get(GameData.FIELD_ID_DRAWABLE) > 0)) {
-                    // Set tile position.
+            for (int j = 0; j < cols; j++) {
+                int tileNum = Integer.parseInt(tiles[j]);
+                GameData gameTileData = mTileData.get(tileNum);
+
+                if ((mGameTiles.length > 0) && (gameTileData != null)) {
                     tilePoint.x = tileX;
                     tilePoint.y = tileY;
 
-                    GameTile gameTile = new GameTile(tilePoint);
+                    bitmap = BitmapManager.setAndGetBitmap(mContext, gameTileData.getDrawable());
+                    GameTile gameTile = new GameTile(bitmap, tilePoint, gameTileData.getSubType());
+                    gameTile.setVisible(gameTileData.isVisible());
 
-                    bitmap = BitmapManager.setAndGetBitmap(context, tileData.get(GameData.FIELD_ID_DRAWABLE));
-                    gameTile.setBitmap(bitmap);
-
-                    // Set tile type.
-                    gameTile.setType(tileData.get(GameData.FIELD_ID_TYPE));
-
-                    // Set tile visibility.
-                    if (tileData.get(GameData.FIELD_ID_VISIBLE) == 0) {
-                        gameTile.setVisible(false);
+                    if (tileWidth == 0) {
+                        tileWidth = gameTile.getWidth();
+                    }
+                    if (tileHeight == 0) {
+                        tileHeight = gameTile.getHeight();
                     }
 
-                    // If undefined, set global tile width / height values.
-                    if (mTileWidth == 0) {
-                        mTileWidth = gameTile.getWidth();
+                    if (sceneXMax == 0 && cols > 0) {
+                        sceneXMax = cols * tileWidth;
                     }
-                    if (mTileHeight == 0) {
-                        mTileHeight = gameTile.getHeight();
-                    }
-
-                    if (mSceneXMax == 0 && tiles.length > 0) {
-                        mSceneXMax = tiles.length * mTileWidth;
-                    }
-                    if (mSceneYMax == 0 && tileLines.length > 0) {
-                        mSceneYMax = tileLines.length * mTileWidth;
+                    if (sceneYMax == 0 && rows > 0) {
+                        sceneYMax = rows * tileHeight;
                     }
 
-                    // Add new game tile to loaded game tiles.
-                    mGameTiles.add(gameTile);
+                    mGameTiles[i][j] = gameTile;
                 }
 
-                // Increment next tile X (horizontal) position by tile width.
-                tileX += mTileWidth;
+                tileX += tileWidth;
             }
-
-            // Increment next tile Y (vertical) position by tile width.
-            tileY += mTileHeight;
+            tileX = 0;
+            tileY += tileHeight;
         }
 
-        Scene scene = new Scene(mSceneXMax, mSceneYMax, mTileWidth, mTileHeight);
-        SceneManager.mScene = scene;
-        return scene;
-    }
-
-    public static void setGameTileData(Map<Integer, List<Integer>> mGameTileData) {
-        SceneManager.mGameTileData = mGameTileData;
-    }
-
-    public static List<GameTile> getGameTiles() {
         return mGameTiles;
     }
 
-    public static Scene getScene() {
-        return mScene;
-    }
+    /**
+     * 获取炸弹模版
+     *
+     * @param bombType
+     */
+    public List<Bitmap> setAndGetBombTemplates(int bombType) {
+        if (!mBombTemplates.containsKey(bombType)) {
+            GameData data = mBombData.get(bombType);
 
-    public static void addDynamicTiles(List<Animation> gameTiles) {
-        mDynamicTiles.addAll(gameTiles);
-    }
+            Bitmap baseBitmap = BitmapManager.setAndGetBitmap(mContext, data.getDrawable());
+            List<Bitmap> bitmaps = new ArrayList<>();
 
-    public static GameTile getGameTile(int x, int y) {
-        for (GameTile gameTile : mGameTiles) {
-            if (gameTile.getX() == x && gameTile.getY() == y) {
-                return gameTile;
+            int baseWidth = baseBitmap.getWidth();
+            int baseHeight = baseBitmap.getHeight();
+            int width = baseWidth / 2;
+
+            for (int x = 0; x < baseWidth; x += width) {
+                Bitmap bitmap = Bitmap.createBitmap(baseBitmap, x, 0, width, baseHeight);
+                bitmaps.add(bitmap);
             }
+
+            mBombTemplates.put(bombType, bitmaps);
         }
 
-        BombManager.checkBomb(x, y);
-        PlayerManager.checkPlayer(x, y);
-        return null;
+        return mBombTemplates.get(bombType);
     }
 
-    public static List<Animation> getDynamicTiles() {
-        return mDynamicTiles;
+    /**
+     * 炸弹爆炸，创建火焰
+     *
+     * @param bomb
+     */
+    public void explosionBomb(Bomb bomb) {
+
+    }
+
+    public void setBomb(Point mapPoint) {
+        if (mGameTiles != null) {
+            List<Bitmap> bombTemplate = setAndGetBombTemplates(mBombType);
+            Point point = new Point();
+            point.x = mapPoint.x * tileWidth;
+            point.y = mapPoint.y * tileHeight;
+            mGameTiles[mapPoint.x][mapPoint.y] = new Bomb(bombTemplate, true, point, PlayerManager.mId);
+        }
     }
 }

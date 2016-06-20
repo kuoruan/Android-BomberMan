@@ -1,8 +1,9 @@
 package com.kuoruan.bomberman.entity;
 
+import android.graphics.Bitmap;
 import android.graphics.Point;
 
-import com.kuoruan.bomberman.util.BombManager;
+import java.util.List;
 
 /**
  * Created by Liao on 2016/5/3 0003.
@@ -23,25 +24,21 @@ public class Bomb extends GameTile {
     public static final int DEFAULT_FIRE_LENGTH = 3;
 
     private long id;
-    private long pid;
+    private int pid;
     private int mExplosionTime = DEFAULT_EXPLOSION_TIME;
     private boolean mExplosion = false;
     private int mFireLength = DEFAULT_FIRE_LENGTH;
 
-    public Bomb(Point point, long pid) {
-        super(point);
+    public Bomb(List<Bitmap> frameBitmap, boolean isLoop, Point point, int pid) {
+        super(frameBitmap, isLoop, point, GameTile.TYPE_BOMB);
         this.id = System.currentTimeMillis();
         this.pid = pid;
-        setType(TYPE_BOMB);
         new BombThread().start();
     }
 
-    public Bomb(Point point, long id, long pid) {
-        super(point);
+    public Bomb(List<Bitmap> frameBitmap, boolean isLoop, Point point, long id, int pid) {
+        this(frameBitmap, isLoop, point, pid);
         this.id = id;
-        this.pid = pid;
-        setType(TYPE_BOMB);
-        new BombThread().start();
     }
 
     public long getId() {
@@ -73,7 +70,6 @@ public class Bomb extends GameTile {
 
     public void setExplosion(boolean explosion) {
         mExplosion = explosion;
-        BombManager.explosionBomb(Bomb.this);
     }
 
     public boolean isExplosion() {
@@ -88,11 +84,11 @@ public class Bomb extends GameTile {
         mFireLength = fireLength;
     }
 
-    public long getPid() {
+    public int getPid() {
         return pid;
     }
 
-    public void setPid(long pid) {
+    public void setPid(int pid) {
         this.pid = pid;
     }
 }

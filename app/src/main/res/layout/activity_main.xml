@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <Button
+        android:id="@+id/bt_create_game"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/btn_circle_style"
+        android:padding="8dp"
+        android:text="@string/create_game"
+        android:textColor="@android:color/white"/>
+
+    <Button
+        android:id="@+id/bt_conn_game"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/btn_circle_style"
+        android:padding="8dp"
+        android:text="@string/join_game"
+        android:textColor="@android:color/white"
+        />
+
+    <Button
+        android:id="@+id/bt_about_game"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/btn_circle_style"
+        android:padding="8dp"
+        android:text="@string/about_game"
+        android:textColor="@android:color/white"
+        />
+
+    <Button
+        android:id="@+id/bt_exit_game"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/btn_circle_style"
+        android:padding="8dp"
+        android:text="@string/exit_game"
+        android:textColor="@android:color/white"/>
+
+
+</LinearLayout>
