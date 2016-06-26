@@ -5,11 +5,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import com.kuoruan.bomberman.R;
-import com.kuoruan.bomberman.activity.GameActivity;
 import com.kuoruan.bomberman.entity.Bomb;
+import com.kuoruan.bomberman.entity.BombFire;
 import com.kuoruan.bomberman.entity.GameTile;
 import com.kuoruan.bomberman.util.GameConstants;
-import com.kuoruan.bomberman.view.GameView;
 
 import static android.provider.BaseColumns._ID;
 
@@ -80,8 +79,10 @@ public class GameOpenHelper extends SQLiteOpenHelper {
                     + "(5," + GameDataDao.TYPE_PLAYER + ",2," + R.drawable.player_1 + ",1);",
 
             "INSERT INTO " + GameDataDao.TABLE_NAME + " VALUES "
-                    + "(6," + GameDataDao.TYPE_BOMB + "," + Bomb.TYPE_NORMAL + "," + R.drawable.bomb_1 + ",1);",
+                    + "(6," + GameDataDao.TYPE_BOMB + "," + Bomb.NORMAL + "," + R.drawable.bomb_1 + ",1);",
 
+            "INSERT INTO " + GameDataDao.TABLE_NAME + " VALUES "
+                    + "(7," + GameDataDao.TYPE_BOMB_FIRE + "," + BombFire.NORMAL + "," + R.drawable.bomb_1 + ",1);",
     };
 
     private static final String[] POPULATE_TABLE_GAME_LEVEL_TILES = {
