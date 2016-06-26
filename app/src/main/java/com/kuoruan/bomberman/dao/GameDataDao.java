@@ -30,6 +30,7 @@ public class GameDataDao {
     public static final int TYPE_TILE = 1;
     public static final int TYPE_PLAYER = 2;
     public static final int TYPE_BOMB = 3;
+    public static final int TYPE_BOMB_FIRE = 4;
 
     public static final int FIELD_ID_ID = 0;
     public static final int FIELD_ID_TYPE = 1;
@@ -126,10 +127,35 @@ public class GameDataDao {
             bombData.setType(cursor.getInt(FIELD_ID_TYPE));
             int subType = cursor.getInt(FIELD_ID_SUB_TYPE);
             bombData.setSubType(subType);
+            bombData.setDrawable(cursor.getInt(FIELD_ID_DRAWABLE));
 
             data.put(subType, bombData);
         }
 
+        cursor.close();
+        db.close();
+
+        return data;
+    }
+
+    public Map<Integer, GameData> getFireData() {
+        SQLiteDatabase db = mGameOpenHelper.getReadableDatabase();
+        String[] from = {_ID, TYPE, SUB_TYPE, DRAWABLE};
+        String where = TYPE + " = " + TYPE_BOMB_FIRE;
+        Cursor cursor = db.query(TABLE_NAME, from, where, null, null, null, null);
+
+        Map<Integer, GameData> data = new HashMap<>();
+
+        while (cursor.moveToNext()) {
+            GameData fireData = new GameData();
+            fireData.setId(cursor.getInt(FIELD_ID_ID));
+            fireData.setType(cursor.getInt(FIELD_ID_TYPE));
+            int subType = cursor.getInt(FIELD_ID_SUB_TYPE);
+            fireData.setSubType(subType);
+            fireData.setDrawable(cursor.getInt(FIELD_ID_DRAWABLE));
+
+            data.put(subType, fireData);
+        }
         cursor.close();
         db.close();
 
