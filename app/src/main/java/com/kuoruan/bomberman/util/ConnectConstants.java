@@ -28,4 +28,7 @@ public class ConnectConstants {
     public static final String POINT_X = "x";
     public static final String POINT_Y = "y";
     public static final String DIRECTION = "direction";
+    public static final String MAP_X = "mapX";
+    public static final String MAP_Y = "mapY";
+    public static final String BOMB_TYPE = "bombType";
 }

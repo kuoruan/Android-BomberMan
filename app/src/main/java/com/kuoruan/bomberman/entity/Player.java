@@ -102,7 +102,11 @@ public class Player extends DynamicImage {
             mPreDirection = mDirection;
         }
 
-        Log.i(TAG, "doAnimation: player" + id);
+        if (mState == STATE_DIE) {
+            setFrameBitmap(mFrameBitmaps.get(PLAYER_DIE));
+            setLoop(false);
+        }
+
         super.doAnimation();
     }
 

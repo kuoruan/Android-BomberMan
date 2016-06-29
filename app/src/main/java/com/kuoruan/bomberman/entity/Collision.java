@@ -1,7 +1,5 @@
 package com.kuoruan.bomberman.entity;
 
-import android.util.Log;
-
 /**
  * 角色和地图冲突对象
  */
@@ -55,23 +53,24 @@ public class Collision {
         mDirection = direction;
     }
 
-    public void solveCollision(int x, int y) {
+    public void solveCollision() {
         int tileX = mCollisionTile.getX();
         int tileY = mCollisionTile.getY();
         int width = mCollisionTile.getWidth();
         int height = mCollisionTile.getHeight();
+
         switch (mDirection) {
             case Player.DIRECTION_LEFT:
             case Player.DIRECTION_RIGHT:
-                if (y > tileY) {
-                    if (y + SOLVE_LENGTH > tileY + height) {
+                if (mNewY > tileY) {
+                    if (mNewY + SOLVE_LENGTH > tileY + height) {
                         this.mSolvable = true;
                         this.mNewY = tileY + height;
                     } else {
                         this.mSolvable = false;
                     }
                 } else {
-                    if (y + height - SOLVE_LENGTH < tileY) {
+                    if (mNewY + height - SOLVE_LENGTH < tileY) {
                         this.mSolvable = true;
                         this.mNewY = tileY - height;
                     } else {
@@ -81,15 +80,15 @@ public class Collision {
                 break;
             case Player.DIRECTION_UP:
             case Player.DIRECTION_DOWN:
-                if (x > tileX) {
-                    if (x + SOLVE_LENGTH > tileX + width) {
+                if (mNewX > tileX) {
+                    if (mNewX + SOLVE_LENGTH > tileX + width) {
                         this.mSolvable = true;
                         this.mNewX = tileX + width;
                     } else {
                         this.mSolvable = false;
                     }
                 } else {
-                    if (x + width - SOLVE_LENGTH < tileX) {
+                    if (mNewX + width - SOLVE_LENGTH < tileX) {
                         this.mSolvable = true;
                         this.mNewX = tileX - width;
                     } else {

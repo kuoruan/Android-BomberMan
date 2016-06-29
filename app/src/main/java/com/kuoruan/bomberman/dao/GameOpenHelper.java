@@ -82,7 +82,7 @@ public class GameOpenHelper extends SQLiteOpenHelper {
                     + "(6," + GameDataDao.TYPE_BOMB + "," + Bomb.NORMAL + "," + R.drawable.bomb_1 + ",1);",
 
             "INSERT INTO " + GameDataDao.TABLE_NAME + " VALUES "
-                    + "(7," + GameDataDao.TYPE_BOMB_FIRE + "," + BombFire.NORMAL + "," + R.drawable.bomb_1 + ",1);",
+                    + "(7," + GameDataDao.TYPE_BOMB_FIRE + "," + BombFire.NORMAL + "," + R.drawable.fire + ",1);",
     };
 
     private static final String[] POPULATE_TABLE_GAME_LEVEL_TILES = {

@@ -48,6 +48,8 @@ public class WifiGameActivity extends BaseActivity {
                 case GameConstants.PLAYER_ADD:
                 case GameConstants.PLAYER_MOVE:
                 case GameConstants.PLAYER_STOP:
+                case GameConstants.PLAYER_DIE:
+                case GameConstants.SET_BOMB:
                     mConnectedService.sendTCPData(jsonObject);
                     break;
                 default:
@@ -73,8 +75,16 @@ public class WifiGameActivity extends BaseActivity {
                     break;
                 case GameConstants.PLAYER_MOVE:
                     mPlayerManager.handlePlayerMove(jsonObject);
+                    break;
                 case GameConstants.PLAYER_STOP:
                     mPlayerManager.handlePlayerStop(jsonObject);
+                    break;
+                case GameConstants.PLAYER_DIE:
+                    mPlayerManager.handlePlayerDie(jsonObject);
+                    break;
+                case GameConstants.SET_BOMB:
+                    mSceneManager.handleSetBomb(jsonObject);
+                    break;
                 default:
                     break;
             }

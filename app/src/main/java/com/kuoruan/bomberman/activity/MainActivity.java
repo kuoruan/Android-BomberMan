@@ -25,8 +25,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     }
 
     private void initView() {
-        tv_create_game = (TextView) findViewById(R.id.bt_create_game);
-        tv_join_game = (TextView) findViewById(R.id.bt_conn_game);
+        tv_create_game = (TextView) findViewById(R.id.bt_single_play);
+        tv_join_game = (TextView) findViewById(R.id.bt_multi_game);
         tv_exit_game = (TextView) findViewById(R.id.bt_exit_game);
         tv_create_game.setOnClickListener(this);
         tv_join_game.setOnClickListener(this);
@@ -36,10 +36,10 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
-            case R.id.bt_create_game:
+            case R.id.bt_single_play:
                 startActivity(new Intent(this, GameActivity.class));
                 break;
-            case R.id.bt_conn_game:
+            case R.id.bt_multi_game:
                 startActivity(new Intent(this, ConnectionActivity.class));
                 break;
         }

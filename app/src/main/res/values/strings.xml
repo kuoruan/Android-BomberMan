@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">BomberMan</string>
-    <string name="create_game">Create Game</string>
-    <string name="join_game">Join Game</string>
+    <string name="single_play">Single Play</string>
+    <string name="multi_game">Multi Game</string>
     <string name="exit_game">Exit Game</string>
     <string name="about_game">About Game</string>
     <string name="scan_hint">Search Players</string>

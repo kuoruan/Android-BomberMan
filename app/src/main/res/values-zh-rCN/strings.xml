@@ -1,15 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">炸弹人</string>
-    <string name="create_game">创建游戏</string>
-    <string name="join_game">Join Game</string>
-    <string name="exit_game">Exit Game</string>
-    <string name="about_game">About Game</string>
-    <string name="scan_hint">Search Players</string>
-    <string name="scan">LAN Scan</string>
-    <string name="connection">Connection</string>
-    <string name="game_player">Game Player</string>
-    <string name="scan_loading">Scanning… Please wait.</string>
-    <string name="fight_request">Ask for fight with you.</string>
-    <string name="agree">Agree</string>
+    <string name="single_play">单人游戏</string>
+    <string name="multi_game">联机游戏</string>
+    <string name="exit_game">退出游戏</string>
+    <string name="about_game">关于游戏</string>
+    <string name="scan_hint">搜索玩家</string>
+    <string name="scan">网络扫描</string>
+    <string name="connection">网络联机</string>
+    <string name="game_player">玩家</string>
+    <string name="scan_loading">正在扫描… 请稍候</string>
+    <string name="fight_request">希望和你对战</string>
+    <string name="agree">同意</string>
+    <string name="reject">拒绝</string>
 </resources>

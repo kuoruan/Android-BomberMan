@@ -13,7 +13,7 @@ public class Bomb extends GameTile {
     /**
      * 炸弹类型
      */
-    public static final int TYPE_NORMAL = 1;
+    public static final int NORMAL = 1;
     /**
      * 默认爆炸时间,毫秒
      */
@@ -55,7 +55,7 @@ public class Bomb extends GameTile {
             }
 
             if (!mExplosion) {
-                setExplosion(true);
+                mExplosion = true;
             }
         }
     }

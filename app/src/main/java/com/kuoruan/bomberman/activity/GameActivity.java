@@ -24,7 +24,7 @@ public class GameActivity extends BaseActivity {
     private SceneManager mSceneManager;
 
     private Context mContext;
-    private Handler mHandler = new Handler() {
+    private Handler mRefreshHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             Toast.makeText(mContext, "start...", Toast.LENGTH_LONG);
@@ -44,8 +44,8 @@ public class GameActivity extends BaseActivity {
         Display display = getWindowManager().getDefaultDisplay();
 
         int playerId = 1;
-        //mPlayerManager = new PlayerManager(mContext, playerId);
-        //mSceneManager = new SceneManager(mContext, GameConstants.MULTI_PLAYER_STAGE);
+        mPlayerManager = new PlayerManager(mContext, mRefreshHandler, playerId);
+        mSceneManager = new SceneManager(mContext, mRefreshHandler, GameConstants.MULTI_PLAYER_STAGE);
 
         mGameView = new GameView(mContext, mPlayerManager, mSceneManager, display);
 

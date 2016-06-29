@@ -4,6 +4,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
 
 import com.kuoruan.bomberman.dao.GameDataDao;
 import com.kuoruan.bomberman.dao.GameLevelDataDao;
@@ -11,8 +13,12 @@ import com.kuoruan.bomberman.entity.Bomb;
 import com.kuoruan.bomberman.entity.BombFire;
 import com.kuoruan.bomberman.entity.Collision;
 import com.kuoruan.bomberman.entity.GameTile;
+import com.kuoruan.bomberman.entity.Player;
 import com.kuoruan.bomberman.entity.data.GameData;
 import com.kuoruan.bomberman.entity.data.GameLevelData;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,6 +54,7 @@ public class SceneManager {
 
     //地图上所有的砖块
     private GameTile[][] mGameTiles = null;
+    private List<GameTile> mBombFires = new ArrayList<>();
     //玩家周围的砖块
     private List<GameTile> mSurroundTiles = new ArrayList<>();
     private Context mContext;
@@ -199,12 +206,14 @@ public class SceneManager {
      *
      * @param bomb
      */
-    public void explosionBomb(Bomb bomb, int x, int y) {
+    public void explodBomb(Bomb bomb, int x, int y) {
         int fireLength = bomb.getFireLength();
 
         BombFire middleFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_CENTER));
         middleFire.setMapPoint(x, y);
+        mBombFires.add(middleFire);
 
+        //火焰是否可以向四个方向延伸
         boolean spreadUp = true;
         boolean spreadDown = true;
         boolean spreadLeft = true;
@@ -218,7 +227,7 @@ public class SceneManager {
             boolean isLast = (i == fireLength);
             //上面
             newY = y - i;
-            if (spreadUp && !mGameTiles[newY][x].isBlockerTile()) {
+            if (spreadUp && canSpread(mGameTiles[newY][x])) {
                 BombFire upFire;
                 if (!isLast) {
                     upFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_VERTICAL));
@@ -226,14 +235,14 @@ public class SceneManager {
                     upFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_UP));
                 }
                 upFire.setMapPoint(x, newY);
-                mGameTiles[newY][x] = upFire;
+                mBombFires.add(upFire);
             } else {
                 spreadUp = false;
             }
 
             //下面
             newY = y + i;
-            if (spreadDown && !mGameTiles[newY][x].isBlockerTile()) {
+            if (spreadDown && canSpread(mGameTiles[newY][x])) {
                 BombFire downFire;
                 if (!isLast) {
                     downFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_VERTICAL));
@@ -241,14 +250,14 @@ public class SceneManager {
                     downFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_DOWN));
                 }
                 downFire.setMapPoint(x, newY);
-                mGameTiles[newY][x] = downFire;
+                mBombFires.add(downFire);
             } else {
                 spreadDown = false;
             }
 
             //左面
             newX = x - i;
-            if (spreadLeft && !mGameTiles[y][newX].isBlockerTile()) {
+            if (spreadLeft && canSpread(mGameTiles[y][newX])) {
                 BombFire leftFire;
                 if (!isLast) {
                     leftFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_HORIZONTAL));
@@ -256,14 +265,14 @@ public class SceneManager {
                     leftFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_LEFT));
                 }
                 leftFire.setMapPoint(newX, y);
-                mGameTiles[y][newX] = leftFire;
+                mBombFires.add(leftFire);
             } else {
                 spreadLeft = false;
             }
 
             //右面
             newX = x + i;
-            if (spreadRight && !mGameTiles[y][newX].isBlockerTile()) {
+            if (spreadRight && canSpread(mGameTiles[y][newX])) {
                 BombFire rightFire;
                 if (!isLast) {
                     rightFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_HORIZONTAL));
@@ -271,30 +280,80 @@ public class SceneManager {
                     rightFire = new BombFire(setAndGetFireTemplates(mFireType, BombFire.TYPE_RIGHT));
                 }
                 rightFire.setMapPoint(newX, y);
-                mGameTiles[y][newX] = rightFire;
+                mBombFires.add(rightFire);
+            } else {
+                spreadRight = false;
             }
 
         }
     }
 
+    /**
+     * 放置炸弹
+     *
+     * @param mapPoint
+     */
     public void setBomb(Point mapPoint) {
-        if (mGameTiles != null) {
-            List<Bitmap> bombTemplate = setAndGetBombTemplates(mBombType);
-            Point point = new Point();
-            point.x = mapPoint.x * tileWidth;
-            point.y = mapPoint.y * tileHeight;
-            mGameTiles[mapPoint.y][mapPoint.x] = new Bomb(bombTemplate, true, point, PlayerManager.mId);
+        //地图上的相对点
+        int mapX = mapPoint.x;
+        int mapY = mapPoint.y;
+
+        GameTile gameTile = mGameTiles[mapY][mapX];
+        if (gameTile != null && gameTile.isBlockerTile()) {
+            Log.i(TAG, "setBomb: 炸弹已存在");
+            return;
         }
+
+        addBomb(PlayerManager.mId, mBombType, mapX, mapY);
+        //网络通告
+        noticeSetBomb(PlayerManager.mId, mapX, mapY);
     }
 
-    public void handleCollision(Collision collision, Point mapPoint, int width, int height) {
+    private void addBomb(int pid, int bombType, int mapX, int mapY) {
+        //计算绝对坐标点
+        Point point = new Point();
+        point.x = mapX * tileWidth;
+        point.y = mapY * tileHeight;
+
+        List<Bitmap> bombTemplate = setAndGetBombTemplates(bombType);
+        Bomb bomb = new Bomb(bombTemplate, true, point, pid);
+        mGameTiles[mapY][mapX] = bomb;
+    }
+
+    private void noticeSetBomb(int pid, int mapX, int mapY) {
+        if (!isMultiStage()) return;
+
+        Message msg = Message.obtain();
+        msg.what = GameConstants.SET_BOMB;
+
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put(ConnectConstants.TYPE, GameConstants.SET_BOMB);
+            jsonObject.put(ConnectConstants.PLAYER_ID, pid);
+            jsonObject.put(ConnectConstants.BOMB_TYPE, mBombType);
+            jsonObject.put(ConnectConstants.MAP_X, mapX);
+            jsonObject.put(ConnectConstants.MAP_Y, mapY);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        msg.obj = jsonObject;
+        mHandler.sendMessage(msg);
+    }
+
+    public void handleCollision(Collision collision, Player player) {
+        Point mapPoint = player.getStandardMapPoint();
+        int width = player.getWidth();
+        int height = player.getHeight();
+
         mSurroundTiles.clear();
 
-        //首先获取周围8个方向的砖块
+        //首先获取周围8个位置和当前位置砖块，取当前位置是为了判断是否有火焰
         mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x - 1]); //左上
         mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x]); //上
         mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x + 1]); //右上
         mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x - 1]); //左
+        mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x]); //当前
         mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x + 1]); //右
         mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x - 1]); //左下
         mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x]); //下
@@ -315,23 +374,61 @@ public class SceneManager {
             return;
         }
 
-        int type = collisionTile.getType();
-
-        if (type == GameTile.TYPE_BOMB) {
-            int tileX = collisionTile.getX();
-            int tileY = collisionTile.getY();
-            int diffX = Math.abs(tileX - newX);
-            int diffY = Math.abs(tileY - newY);
-
-            if ((diffX != 0 && diffX < tileWidth) || (diffY != 0 && diffY < tileHeight)) {
-                return;
+        if (collisionTile.getType() == GameTile.TYPE_BOMB) {
+            Point nowPoint = player.getPoint();
+            if (collisionTile.isCollision(nowPoint.x, nowPoint.y, width, height)) { //如果炸弹和当前角色有交叉
+                return; //允许通过
             } else {
-                collision.setSolvable(false);
+                collision.setSolvable(false); //不许通过
                 return;
             }
         }
 
         collision.setCollisionTile(collisionTile);
         collision.solveCollision();
+    }
+
+    public List<GameTile> getBombFires() {
+        return mBombFires;
+    }
+
+    /**
+     * 判断砖块是否是空或者可以破环
+     *
+     * @param gameTile
+     * @return
+     */
+    private boolean canSpread(GameTile gameTile) {
+        return gameTile == null || !gameTile.isBlockerTile();
+    }
+
+    /**
+     * 判断游戏是否为多人游戏
+     *
+     * @return
+     */
+    public static boolean isMultiStage() {
+        return gameStage == GameConstants.MULTI_PLAYER_STAGE;
+    }
+
+    /**
+     * 处理网络炸弹放置
+     */
+    public void handleSetBomb(JSONObject jsonObject) {
+        int pid = 0;
+        int bombType = 0;
+        int mapX = 0;
+        int mapY = 0;
+
+        try {
+            pid = jsonObject.getInt(ConnectConstants.PLAYER_ID);
+            bombType = jsonObject.getInt(ConnectConstants.BOMB_TYPE);
+            mapX = jsonObject.getInt(ConnectConstants.MAP_X);
+            mapY = jsonObject.getInt(ConnectConstants.MAP_Y);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        addBomb(pid, bombType, mapX, mapY);
     }
 }

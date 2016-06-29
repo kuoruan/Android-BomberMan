@@ -4,6 +4,8 @@ import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.Rect;
 
+import com.kuoruan.bomberman.util.SceneManager;
+
 import java.util.List;
 
 /**
@@ -31,6 +33,11 @@ public class GameTile extends DynamicImage {
     private boolean mIsDynamic = false;
 
     public GameTile() {
+    }
+
+    public GameTile(List<Bitmap> frameBitmap, int type) {
+        this.mType = type;
+        setFrameBitmap(frameBitmap);
     }
 
     public GameTile(Bitmap bitmap, Point point, int type) {
@@ -108,5 +115,10 @@ public class GameTile extends DynamicImage {
 
     public boolean isBlockerTile() {
         return (this.mType != GameTile.TYPE_EMPTY);
+    }
+
+    public void setMapPoint(int x, int y) {
+        mPoint.x = x * SceneManager.tileWidth;
+        mPoint.y = y * SceneManager.tileHeight;
     }
 }

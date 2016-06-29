@@ -219,6 +219,8 @@ public class ConnectedService {
             case GameConstants.PLAYER_ADD:
             case GameConstants.PLAYER_MOVE:
             case GameConstants.PLAYER_STOP:
+            case GameConstants.PLAYER_DIE:
+            case GameConstants.SET_BOMB:
                 notifyPlayerAction(type, jsonObject);
                 break;
             default:

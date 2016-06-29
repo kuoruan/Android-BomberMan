@@ -1,9 +1,6 @@
 package com.kuoruan.bomberman.util;
 
-import android.app.Activity;
-import android.content.Context;
 import android.os.Bundle;
-import android.view.Display;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -18,9 +15,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Created by Window10 on 2016/3/14.
+ * 各种数据工具类
  */
 public class DataUtil {
+
     public static String streamToString(InputStream is) {
         byte[] bytes = new byte[1024];
         int length = 0;

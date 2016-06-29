@@ -12,6 +12,8 @@ public class GameConstants {
     public static final int PLAYER_ADD = 1;
     public static final int PLAYER_MOVE = 2;
     public static final int PLAYER_STOP = 3;
+    public static final int PLAYER_DIE = 4;
+    public static final int SET_BOMB = 5;
 
     public static final int MODE_SINGLE = 0;
     public static final int MODE_FIGHT = 1;

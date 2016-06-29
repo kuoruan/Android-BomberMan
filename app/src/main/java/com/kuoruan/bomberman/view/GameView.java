@@ -14,6 +14,8 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import com.kuoruan.bomberman.R;
+import com.kuoruan.bomberman.entity.Bomb;
+import com.kuoruan.bomberman.entity.BombFire;
 import com.kuoruan.bomberman.entity.Collision;
 import com.kuoruan.bomberman.entity.GameTile;
 import com.kuoruan.bomberman.entity.GameUi;
@@ -84,15 +86,15 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
     //地图对象数组
     private GameTile[][] mGameTiles;
+    private List<GameTile> mBombFires;
+    private List<GameTile> mEndFires = new ArrayList<>();
+
     private PlayerManager mPlayerManager;
     private SceneManager mSceneManager;
     private Map<Integer, Player> mPlayers;
     //冲突对象
     private Collision mCollision = new Collision();
-    //冲突砖块
-    private GameTile mCollisionTile = null;
-    //玩家周围的砖块
-    private List<GameTile> mSurroundTiles = new ArrayList<>();
+
     //游戏主线程
     private GameThread mThread;
 
@@ -110,6 +112,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         mPlayers = mPlayerManager.getPlayers();
 
         mSceneManager = sceneManager;
+        mBombFires = mSceneManager.getBombFires();
 
         SurfaceHolder holder = getHolder();
         holder.addCallback(this);
@@ -144,15 +147,15 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if (mThread.getState() == Thread.State.TERMINATED) {
-            mThread = new GameThread(holder, getContext());
-            mThread.setRunning(true);
-            mThread.start();
-            mThread.doStart();
-            startLevel();
-        } else {
-            mThread.setRunning(true);
-            mThread.start();
+        boolean retry = true;
+        mThread.setRunning(false);
+        while (retry) {
+            try {
+                mThread.join();
+                retry = false;
+            } catch (InterruptedException e) {
+                Log.e(TAG, e.getMessage());
+            }
         }
     }
 
@@ -250,17 +253,21 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 }
 
                 mCollision.setDirection(direction);
-                //处理冲突
-                solveCollision(newX, newY);
+                mCollision.setSolvable(true);
+                mCollision.setNewX(newX);
+                mCollision.setNewY(newY);
+
+                mSceneManager.handleCollision(mCollision, mPlayer);
+
                 if (mCollision.isSolvable()) {
                     mPlayer.setX(mCollision.getNewX());
                     mPlayer.setY(mCollision.getNewY());
                     mPlayerManager.noticeMyMove();
+                    setViewOffset();
                 } else {
                     handleTileCollision(mCollision.getCollisionTile());
                 }
 
-                setViewOffset();
             }
         }
 
@@ -272,7 +279,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 if (!updatingGameTiles) {
                     drawGameTiles();
                 }
-
+                drawBombFires();
                 drawPlayers();
                 drawControls();
 
@@ -290,7 +297,7 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                 offsetX = player.getX() - mScreenXOffset;
                 offsetY = player.getY() - mScreenYOffset;
                 //Log.i(TAG, "drawPlayers: player" + player.getId() + " is moving " + player.isMoving());
-                if (player.isMoving()) {
+                if (player.isMoving() || (!player.isAlive() && !player.isEnd())) {
                     player.doAnimation();
                 }
                 canvas.drawBitmap(player.getBitmap(), offsetX, offsetY, null);
@@ -301,20 +308,65 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
         private void drawGameTiles() {
             int offsetX;
             int offsetY;
+            int type;
             GameTile gameTile;
 
             for (int i = 0; i < mGameTiles.length; i++) {
                 for (int j = 0; j < mGameTiles[i].length; j++) {
                     gameTile = mGameTiles[i][j];
-                    if (gameTile != null) {
-                        offsetX = gameTile.getX() - mScreenXOffset;
-                        offsetY = gameTile.getY() - mScreenYOffset;
-                        if (gameTile.isVisible()) {
-                            canvas.drawBitmap(gameTile.getBitmap(), offsetX, offsetY, null);
+                    if (gameTile == null) {
+                        continue;
+                    }
+                    offsetX = gameTile.getX() - mScreenXOffset;
+                    offsetY = gameTile.getY() - mScreenYOffset;
+
+                    if (gameTile.isVisible()) {
+                        type = gameTile.getType();  //获取砖块类型
+
+                        switch (type) {
+                            case GameTile.TYPE_BOMB:
+                                Bomb bomb = (Bomb) gameTile;
+                                if (bomb.isExplosion()) { //如果炸弹已爆炸
+                                    mSceneManager.explodBomb(bomb, j, i); //引爆炸弹
+                                    mGameTiles[i][j] = null;
+                                } else {
+                                    bomb.doAnimation();
+                                }
+                                break;
+
+                            default:
+                                break;
                         }
+
+                        canvas.drawBitmap(gameTile.getBitmap(), offsetX, offsetY, null);
                     }
                 }
             }
+        }
+
+        private void drawBombFires() {
+            if (mBombFires.size() == 0) {
+                return;
+            }
+
+            int offsetX;
+            int offsetY;
+            for (GameTile fire : mBombFires) {
+                if (fire.isCollision(mPlayer.getX(), mPlayer.getY(), mPlayer.getWidth(), mPlayer.getHeight())) {
+                    mPlayerManager.noticeMyDie();
+                }
+                if (fire.isEnd()) {
+                    mEndFires.add(fire);
+                } else {
+                    offsetX = fire.getX() - mScreenXOffset;
+                    offsetY = fire.getY() - mScreenYOffset;
+                    fire.doAnimation();
+                    canvas.drawBitmap(fire.getBitmap(), offsetX, offsetY, null);
+                }
+            }
+
+            mBombFires.removeAll(mEndFires);
+            mEndFires.clear();
         }
 
         //绘制控制按钮
@@ -324,44 +376,6 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
             canvas.drawBitmap(mCtrlLeftArrow.getBitmap(), mCtrlLeftArrow.getX(), mCtrlLeftArrow.getY(), null);
             canvas.drawBitmap(mCtrlRightArrow.getBitmap(), mCtrlRightArrow.getX(), mCtrlRightArrow.getY(), null);
             canvas.drawBitmap(mSetBombButton.getBitmap(), mSetBombButton.getX(), mSetBombButton.getY(), null);
-        }
-
-        //获取冲撞对象，并尝试解决冲撞
-        private void solveCollision(int x, int y) {
-            mCollision.setSolvable(true);
-            mCollision.setNewX(x);
-            mCollision.setNewY(y);
-
-            Point mapPoint = mPlayer.getStandardMapPoint();
-            mSurroundTiles.clear();
-
-            //首先获取周围8个方向的砖块
-            mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x - 1]); //左上
-            mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x]); //上
-            mSurroundTiles.add(mGameTiles[mapPoint.y - 1][mapPoint.x + 1]); //右上
-            mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x - 1]); //左
-            mSurroundTiles.add(mGameTiles[mapPoint.y][mapPoint.x + 1]); //右
-            mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x - 1]); //左下
-            mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x]); //下
-            mSurroundTiles.add(mGameTiles[mapPoint.y + 1][mapPoint.x + 1]); //右下
-
-            int width = mPlayer.getWidth();
-            int height = mPlayer.getHeight();
-
-            for (GameTile gameTile : mSurroundTiles) {
-                if (gameTile != null && gameTile.isCollision(x, y, width, height)) { //如果存在冲突
-                    mCollisionTile = gameTile;
-                    break;
-                }
-            }
-            mCollision.setCollisionTile(mCollisionTile);
-
-            if (mCollisionTile != null) {
-                //处理冲突
-                mCollision.solveCollision(x, y);
-            }
-
-            mCollisionTile = null;
         }
 
         //设置游戏状态
@@ -553,6 +567,13 @@ public class GameView extends SurfaceView implements SurfaceHolder.Callback {
                     break;
                 case GameTile.TYPE_CRATES:
                     Log.i(TAG, "handleTileCollision: 木箱子");
+                    break;
+                case GameTile.TYPE_BOMB:
+                    Log.i(TAG, "handleTileCollision: 炸弹");
+                    break;
+                case GameTile.TYPE_BOMB_FIRE:
+                    Log.i(TAG, "handleTileCollision: 火焰");
+                    mPlayerManager.noticeMyDie(); //处理角色死亡
                     break;
                 default:
                     Log.i(TAG, "handleTileCollision: 其他冲突");

@@ -179,7 +179,24 @@ public class PlayerManager {
         netPlayer.setDirection(0);
     }
 
+    public void handlePlayerDie(JSONObject jsonObject) {
+        int pid = 0;
+        try {
+            pid = jsonObject.getInt(ConnectConstants.PLAYER_ID);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        if (pid == mId) {
+            return;
+        }
+        Player netPlayer = mPlayers.get(pid);
+        netPlayer.setState(Player.STATE_DIE);
+        netPlayer.setDirection(0);
+    }
+
     public void noticeMyMove() {
+        if (!SceneManager.isMultiStage()) return;
+
         Message msg = Message.obtain();
         msg.what = GameConstants.PLAYER_MOVE;
 
@@ -200,6 +217,8 @@ public class PlayerManager {
 
 
     private void noticeMyPlayer() {
+        if (!SceneManager.isMultiStage()) return;
+
         Message msg = Message.obtain();
         msg.what = GameConstants.PLAYER_ADD;
 
@@ -218,12 +237,31 @@ public class PlayerManager {
     }
 
     public void noticeMyStop() {
+        if (!SceneManager.isMultiStage()) return;
+
         Message msg = Message.obtain();
         msg.what = GameConstants.PLAYER_STOP;
 
         JSONObject jsonObject = new JSONObject();
         try {
             jsonObject.put(ConnectConstants.TYPE, GameConstants.PLAYER_STOP);
+            jsonObject.put(ConnectConstants.PLAYER_ID, mId);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        msg.obj = jsonObject;
+        mHandler.sendMessage(msg);
+    }
+
+    public void noticeMyDie() {
+        mMyPlayer.setState(Player.STATE_DIE);
+
+        Message msg = Message.obtain();
+        msg.what = GameConstants.PLAYER_DIE;
+
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put(ConnectConstants.TYPE, GameConstants.PLAYER_DIE);
             jsonObject.put(ConnectConstants.PLAYER_ID, mId);
         } catch (JSONException e) {
             e.printStackTrace();
